@@ -55,21 +55,21 @@ street_df = extract_segment_data(segments_json)
 # --- just for debugging ---
 # plot segments and vertices on a map 
 
-# center = [51.322523347273126, 12.375431206686596]
-# map_leipzig = folium.Map(location=center, zoom_start=16)
-# for index, row in street_df.loc[~street_df['street'].str.contains("Parkplatz")].iterrows():
+center = [51.322523347273126, 12.375431206686596]
+map_leipzig = folium.Map(location=center, zoom_start=16)
+for index, row in street_df.loc[~street_df['street_name'].str.contains("Parkplatz")].iterrows():
+    coords = row['coords']
+    if index%2 == 0:
+        color = 'red'
+    else:
+        color = 'blue'
+    folium.PolyLine(coords, color=color).add_to(map_leipzig)
+    folium.Marker(coords[0],
+                  popup=row['street_name']).add_to(map_leipzig)
+
+# for index, row in vertice_df.iterrows():
 #     coords = row['coords']
-#     if index%2 == 0:
-#         color = 'red'
-#     else:
-#         color = 'blue'
-#     folium.PolyLine(coords, color=color).add_to(map_leipzig)
-#     folium.Marker(coords[0],
-#                   popup=row['street']).add_to(map_leipzig)
+#     folium.Marker(coords).add_to(map_leipzig)
 
-# # for index, row in vertice_df.iterrows():
-# #     coords = row['coords']
-# #     folium.Marker(coords).add_to(map_leipzig)
-
-# # save map to html file
-# map_leipzig.save('index.html')
+# save map to html file
+map_leipzig.save('index.html')
