@@ -1,0 +1,45 @@
+# This file may be used to create an environment using:
+# $ conda create --name <env> --file <this file>
+# platform: osx-arm64
+branca=0.6.0=pypi_0
+brotlipy=0.7.0=pypi_0
+bzip2=1.0.8=h620ffc9_4
+ca-certificates=2022.4.26=hca03da5_0
+certifi=2022.6.15=pypi_0
+cffi=1.15.0=pypi_0
+charset-normalizer=2.0.4=pyhd3eb1b0_0
+cryptography=37.0.1=pypi_0
+folium=0.14.0=pypi_0
+idna=3.3=pyhd3eb1b0_0
+jinja2=3.1.2=pypi_0
+krb5=1.19.2=h3b8d789_0
+libcxx=12.0.0=hf6beb65_1
+libedit=3.1.20210910=h1a28f6b_0
+libffi=3.4.2=hc377ac9_4
+libpq=12.9=h65cfe13_3
+markupsafe=2.1.2=pypi_0
+ncurses=6.3=h1a28f6b_2
+numpy=1.24.2=pypi_0
+openssl=1.1.1o=h1a28f6b_0
+pandas=1.5.3=pypi_0
+pip=21.2.4=pypi_0
+psycopg2=2.8.6=pypi_0
+pycparser=2.21=pyhd3eb1b0_0
+pyopenssl=22.0.0=pyhd3eb1b0_0
+pysocks=1.7.1=pypi_0
+python=3.10.4=hbdb9e5c_0
+python-dateutil=2.8.2=pypi_0
+pytz=2022.7.1=pypi_0
+readline=8.1.2=h1a28f6b_1
+requests=2.27.1=pyhd3eb1b0_0
+setuptools=61.2.0=pypi_0
+six=1.16.0=pypi_0
+sqlalchemy=2.0.2=pypi_0
+sqlite=3.38.5=h1058600_0
+tk=8.6.12=hb8d0fd4_0
+typing-extensions=4.4.0=pypi_0
+tzdata=2022a=hda174b7_0
+urllib3=1.26.9=pypi_0
+wheel=0.37.1=pyhd3eb1b0_0
+xz=5.2.5=h1a28f6b_1
+zlib=1.2.12=h5a0b063_2
