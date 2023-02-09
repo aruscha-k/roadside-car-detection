@@ -6,8 +6,6 @@ def open_connection():
     connection = psycopg2.connect(
             host = "localhost",
             database = "streets_leipzig",
-            user = "postgres",
-            password = "kaka",
             port = 5432)
     return connection
 

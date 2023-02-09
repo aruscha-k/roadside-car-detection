@@ -1,0 +1,18 @@
+[
+    {
+        "name": "streets",
+        "columns": [
+            {"name": "id", "data_type": "int", "prim_key": true},
+            {"name": "name", "data_type": "text"}
+        ]
+    },
+    {
+        "name": "tags",
+        "columns": [
+            {"name": "id", "data_type": "int", "prim_key": true},
+            {"name": "key", "data_type": "text"},
+            {"name": "value", "data_type": "text"},
+            {"name": "street_id", "data_type": "int"}
+        ]
+    }
+]
