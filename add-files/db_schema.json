@@ -2,24 +2,27 @@
     {
         "name": "streets",
         "columns": [
-            {"name": "id", "data_type": "int", "PRIMARY KEY": true, "NOT NULL": true},
-            {"name": "name", "data_type": "text"}
+            {"name": "id", "type": "int", "primary key": true, "not null": true},
+            {"name": "name", "type": "text"}
         ]
     },
     {
         "name": "segments",
         "columns": [
-            {"name": "id", "data_type": "int", "PRIMARY KEY": true, "NOT NULL": true},
-            {"name": "name", "data_type": "text"}
+            {"name": "id", "type": "int", "primary key": true, "not null": true},
+            {"name": "street_id", "type": "int", "references": "streets"},
+            {"name": "street_type", "type": "text"},
+            {"name": "geometry", "type": "json"},
+            {"name": "length_m", "type": "float8"}
         ]
     },
     {
         "name": "tags",
         "columns": [
-            {"name": "id", "data_type": "SERIAL", "PRIMARY KEY": true, "NOT NULL": true},
-            {"name": "key", "data_type": "text"},
-            {"name": "value", "data_type": "text"},
-            {"name": "street_id", "data_type": "int"}
+            {"name": "id", "type": "SERIAL", "primary key": true, "not null": true},
+            {"name": "key", "type": "text"},
+            {"name": "value", "type": "text"},
+            {"name": "segment_id", "type": "int", "references": "segments"}
         ]
     }
 ]
