@@ -1,5 +1,4 @@
 import psycopg2
-from sqlalchemy import create_engine
 import handy_defs as hd
 
 
@@ -27,10 +26,9 @@ def open_connection(config: dict):
 def create_tables(connection, schema):
     with connection.cursor() as cursor:
         for table in schema:
-            columns_str_list = [
-                f'{col["name"]} {col["data_type"]} PRIMARY KEY' if "prim_key" in col
-                else f'{col["name"]} {col["data_type"]}'
-                for col in table["columns"]]
+            columns_str_list = [f'{col["name"]} {col["data_type"]}' if all(k in ['name', 'data_type'] for k in col)
+                                else f'{col["name"]} {col["data_type"]} ' + ' '.join([k for k,v in col.items() if k not in ['name', 'data_type'] and v])
+                                for col in table["columns"]]
             columns_str_list = ','.join(columns_str_list)
             
             sql_str = f'CREATE TABLE {table["name"]} ({columns_str_list})'
@@ -39,13 +37,6 @@ def create_tables(connection, schema):
             cursor.execute(sql_str)
 
         connection.commit()
-
-
-def load_data_into_tables(data_df, table_name):
-
-    engine = create_engine('postgresql://postgres:kaka@localhost:5432/streets_leipzig')
-    data_df.to_sql(table_name, engine, schema= "public", index=False, if_exists='append')
-
 
 
 if __name__ == "__main__":
