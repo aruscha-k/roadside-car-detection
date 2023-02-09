@@ -1,9 +1,13 @@
 import json
 
-def load_json(path: str):
+def load_json(path: str, mode: str=None):
     data = None
-    with open(path) as f:
-        data = json.load(f)
+    if mode is not None:
+        with open(path, mode) as f:
+            data = json.load(f)
+    else:
+        with open(path) as f:
+            data = json.load(f)
 
     if data is None:
         raise ValueError(f'cant import file by path "{path}"')

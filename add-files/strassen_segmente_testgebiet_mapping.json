@@ -1,0 +1,46 @@
+[
+    {
+        "city_data": {"pop_level_1": "", "prop_level_2": ""},
+        "postgres": {"table": "segments", "column": "id"}
+    },
+    {
+        "city_data": {"pop_level_1": "", "prop_level_2": ""},
+        "postgres": {"table": "segments", "column": "street_id"}
+    },
+    {
+        "city_data": {"pop_level_1": "", "prop_level_2": ""},
+        "postgres": {"table": "segments", "column": "street_type"}
+    },
+    {
+        "city_data": {"pop_level_1": "", "prop_level_2": ""},
+        "postgres": {"table": "segments", "column": "geometry"}
+    },
+    {
+        "city_data": {"pop_level_1": "properties", "prop_level_2": "laenge_m"},
+        "postgres": {"table": "segments", "column": "length_m"}
+    },
+    {
+        "city_data": {"pop_level_1": "", "prop_level_2": ""},
+        "postgres": {"table": "streets", "column": "id"}
+    },
+    {
+        "city_data": {"pop_level_1": "", "prop_level_2": ""},
+        "postgres": {"table": "streets", "column": "name"}
+    },
+    {
+        "city_data": {"pop_level_1": "", "prop_level_2": ""},
+        "postgres": {"table": "tags", "column": "id"}
+    },
+    {
+        "city_data": {"pop_level_1": "", "prop_level_2": ""},
+        "postgres": {"table": "tags", "column": "key"}
+    },
+    {
+        "city_data": {"pop_level_1": "", "prop_level_2": ""},
+        "postgres": {"table": "tags", "column": "value"}
+    },
+    {
+        "city_data": {"pop_level_1": "", "prop_level_2": ""},
+        "postgres": {"table": "tags", "column": "segment_id"}
+    },
+]
