@@ -41,3 +41,7 @@ street_df.to_csv('../add-files/street_df.csv')
 
 with open('../add-files/street_df.pkl', 'wb') as file:
     pickle.dump(street_df, file)
+
+
+
+#https://nominatim.openstreetmap.org/search?q=Scharnhorststraße&viewbox=12.3784553167,51.319536207,12.3817032626,51.319498311
