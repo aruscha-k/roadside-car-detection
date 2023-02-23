@@ -12,8 +12,8 @@ from sqlalchemy import create_engine
 config_path = "./add-files/db_config.json"
 
 segments_path = './add-files/strassen_segmente_testgebiet.json'
-segments__mapping_path = './add-files/strassen_segmente_testgebiet_mapping.json'
-vertice_path = './add-files/strassen_knoten_testgebiet.json'
+segments_mapping_path = './add-files/strassen_segmente_testgebiet_mapping.json'
+#vertice_path = './add-files/strassen_knoten_testgebiet.json'
 
 
 
@@ -40,7 +40,7 @@ def extract_segment_data(segments_json, segments_mapping_json):
     tables_dict = hd.group_by(zip(tables, keys, columns), lambda x: x[0], lambda x: x[1:])
     print([(k, [(t[0], len(t[1]))for t in v]) for k,v in tables_dict.items()])
 
-    return {k:pd.DataFrame(dict(v)) for k,v in tables_dict.items()}
+    return {k: pd.DataFrame(dict(v)) for k,v in tables_dict.items()}
 
 
 def drop_duplicates(tables_dict, tables_primary_keys):
@@ -84,8 +84,8 @@ if __name__ == "__main__":
     config = hd.load_json(config_path)
 
     segments_json = hd.load_json(segments_path, 'rb')
-    segments_mapping_json = hd.load_json(segments__mapping_path)
-    vertices_json = hd.load_json(vertice_path, 'rb')
+    segments_mapping_json = hd.load_json(segments_mapping_path)
+    #vertices_json = hd.load_json(vertice_path, 'rb')
 
     tables_dict = extract_segment_data(segments_json, segments_mapping_json['mapping'])
     tables_dict_no_dup = drop_duplicates(tables_dict, segments_mapping_json['tables_primary_keys'])
