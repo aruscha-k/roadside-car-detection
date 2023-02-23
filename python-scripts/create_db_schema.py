@@ -1,26 +1,12 @@
-import psycopg2
+'''
+script vor db creation as given in schema config
+'''
+
 import handy_defs as hd
 
 
 res_folder_path = "./add-files"
 config_file_name = "db_config.json"
-
-
-def open_connection(config: dict):
-    relevant_keys = {
-        "host",
-        "database",
-        "port"
-    }
-
-    args = {
-        "user": input('please enter db username: '), 
-        "password": input('please enter db password: '), 
-        **hd.select_keys(config, relevant_keys)
-    }
-
-    connection = psycopg2.connect(**args)
-    return connection
 
 
 def schema_to_sql(schema: dict) -> list[str]:
@@ -65,7 +51,7 @@ if __name__ == "__main__":
 
     sql_list = schema_to_sql(schema)
 
-    with open_connection(config) as conn:
-        create_tables(conn, sql_list)
+    with hd.open_connection(config) as con:
+        create_tables(con, sql_list)
 
     print('Done')
