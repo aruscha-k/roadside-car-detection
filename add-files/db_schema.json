@@ -2,7 +2,7 @@
     {
         "name": "streets",
         "columns": [
-            {"name": "id", "type": "int", "primary key": true, "not null": true},
+            {"name": "id", "type": "text", "primary key": true, "not null": true},
             {"name": "name", "type": "text"}
         ]
     },
@@ -10,7 +10,7 @@
         "name": "segments",
         "columns": [
             {"name": "id", "type": "int", "primary key": true, "not null": true},
-            {"name": "street_id", "type": "int", "references": "streets"},
+            {"name": "street_id", "type": "text", "references": "streets"},
             {"name": "street_type", "type": "text"},
             {"name": "geometry", "type": "json"},
             {"name": "length_m", "type": "float8"}
