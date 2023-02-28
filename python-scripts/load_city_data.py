@@ -12,15 +12,12 @@ config_path = "./add-files/db_config.json"
 
 segments_path = './add-files/strassen_segmente_testgebiet.json'
 segments_mapping_path = './add-files/strassen_segmente_testgebiet_mapping.json'
-#vertice_path = './add-files/strassen_knoten_testgebiet.json'
-
 
 
 def coordinates_to_json(coordinates: list) -> str:
     return str(coordinates)
 
 
-# extract data from strassen_segmente_testgebiet.json - file the city sent us
 def extract_segment_data(segments_json, segments_mapping_json):
     global TRANSFORMATIONS
 
@@ -73,7 +70,6 @@ if __name__ == "__main__":
 
     segments_json = hd.load_json(segments_path, 'rb')
     segments_mapping_json = hd.load_json(segments_mapping_path)
-    #vertices_json = hd.load_json(vertice_path, 'rb')
 
     tables_dict = extract_segment_data(segments_json, segments_mapping_json['mapping'])
     tables_dict_no_dup = drop_duplicates(tables_dict, segments_mapping_json['tables_primary_keys'])
