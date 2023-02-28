@@ -5,7 +5,6 @@ script for loading city data into cut db
 
 import pandas as pd
 import handy_defs as hd
-import folium
 from sqlalchemy import create_engine
 
 config_path = "./add-files/db_config.json"
