@@ -4,10 +4,8 @@ script vor db creation as given in schema config
 
 import handy_defs as hd
 
-
-res_folder_path = "./add-files"
-config_file_name = "db_config.json"
-
+RES_FOLDER_PATH = "./add-files"
+CONFIG_FILE_NAME = "db_config.json"
 
 def schema_to_sql(schema: dict) -> list[str]:
     sql_list = []
@@ -39,9 +37,17 @@ def create_tables(connection, sql_list: list[str]):
             cursor.execute(sql_str)
         connection.commit()
 
+# methodto call, if this file will be imported and run by another file.
+# in this case res_folder_path and config_file_name can be set. otherwise the standart files will be used
+def main(res_folder_path:str=None, config_file_name:str=None) -> None:
+    global RES_FOLDER_PATH, CONFIG_FILE_NAME
 
-if __name__ == "__main__":
-    print('Start...')
+    print('Start create_db_schema...')
+
+    if not res_folder_path:
+        res_folder_path = RES_FOLDER_PATH
+    if not config_file_name:
+        config_file_name = CONFIG_FILE_NAME
 
     config_path = f'{res_folder_path}/{config_file_name}'
     config = hd.load_json(config_path)
@@ -54,4 +60,7 @@ if __name__ == "__main__":
     with hd.open_connection(config) as con:
         create_tables(con, sql_list)
 
-    print('Done')
+    print('create_db_schema Done')
+
+if __name__ == "__main__":
+    main()
