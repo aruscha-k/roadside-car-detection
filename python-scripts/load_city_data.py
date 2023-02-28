@@ -4,7 +4,6 @@ script for loading city data into cut db
 
 
 import pandas as pd
-from db_create_tables_load_data import load_data_into_tables
 import handy_defs as hd
 import folium
 from sqlalchemy import create_engine
@@ -53,21 +52,10 @@ def drop_duplicates(tables_dict, tables_primary_keys):
 
     return result
 
-# extract data from strassen_knoten_testgebiet.json - file the city sent us
-#def extract_vertice_data(vertices_json):
-#    vertice_items = []
-#    for feature in vertices_json['features']:
-#        coords = feature['geometry']['coordinates']
-#        coords = (coords[1], coords[0])
-#        obj_id = feature['properties']['objectid']
-#        vertice_items.append({'obj_id': obj_id, 'coords': coords})
-#    vertice_df = pd.DataFrame.from_records(vertice_items)
-#    return vertice_df
-
 def write_tables_to_db(tables_dict, transmission_order, config):
     username = input('please enter db username: ')
     password = input('please enter db password: ')
-    engine = create_engine(f'postgresql://{username}:{password}@{config["host"]}:5432/{config["database"]}')
+    engine = create_engine(f'postgresql://{username}:{password}@{config["host"]}:{config["port"]}/{config["database"]}')
 
     for table in transmission_order:
         tables_dict[table].to_sql(table, engine, index=False, if_exists='append')
