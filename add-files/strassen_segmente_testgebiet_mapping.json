@@ -7,34 +7,35 @@
         {"table" : "streets", "key" : "id"},
         {"table" : "segments", "key" : "id"}
     ],
+    "path_to_data_set": ["features"],
     "mapping" : [
         {
-            "city_data": {"prop_level_1": "properties", "prop_level_2": "objectid"},
+            "path_to_property": ["properties", "objectid"],
             "postgres": {"table": "segments", "column": "id"}
         },
         {
-            "city_data": {"prop_level_1": "properties", "prop_level_2": "str_nr"},
+            "path_to_property": ["properties", "str_nr"],
             "postgres": {"table": "segments", "column": "street_id"}
         },
         {
-            "city_data": {"prop_level_1": "properties", "prop_level_2": "sstrgsname"},
+            "path_to_property": ["properties", "sstrgsname"],
             "postgres": {"table": "segments", "column": "street_type"}
         },
         {
-            "city_data": {"prop_level_1": "geometry", "prop_level_2": "coordinates"},
+            "path_to_property": ["geometry", "coordinates"],
             "postgres": {"table": "segments", "column": "geometry"},
             "transformation" : "coordinates_to_json"
         },
         {
-            "city_data": {"prop_level_1": "properties", "prop_level_2": "laenge_m"},
+            "path_to_property": ["properties", "laenge_m"],
             "postgres": {"table": "segments", "column": "length_m"}
         },
         {
-            "city_data": {"prop_level_1": "properties", "prop_level_2": "str_nr"},
+            "path_to_property": ["properties", "str_nr"],
             "postgres": {"table": "streets", "column": "id"}
         },
         {
-            "city_data": {"prop_level_1": "properties", "prop_level_2": "str"},
+            "path_to_property": ["properties", "str"],
             "postgres": {"table": "streets", "column": "name"}
         }
     ]
