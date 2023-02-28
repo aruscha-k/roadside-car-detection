@@ -33,6 +33,12 @@ def open_connection(config: dict):
 def select_keys(d: dict, keys) -> dict:
     return {k:v for k,v in d.items() if k in keys}
 
+def navigate_json_dict(json_dict, path:list):
+    result_item = json_dict
+    for property in path:
+        result_item = result_item[property]
+    return result_item
+
 def group_by(iterable, get_key, get_value=None) -> dict:
     result = dict()
     for item in iterable:
