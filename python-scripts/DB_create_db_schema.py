@@ -2,10 +2,9 @@
 script vor db creation as given in schema config
 '''
 
-import handy_defs as hd
+import DB_helpers as db_helper
+from PATH_CONFIGS import RES_FOLDER_PATH, CONFIG_FILE_NAME
 
-RES_FOLDER_PATH = "./add-files"
-CONFIG_FILE_NAME = "db_config.json"
 
 def schema_to_sql(schema: dict) -> list[str]:
     sql_list = []
@@ -50,14 +49,14 @@ def main(res_folder_path:str=None, config_file_name:str=None) -> None:
         config_file_name = CONFIG_FILE_NAME
 
     config_path = f'{res_folder_path}/{config_file_name}'
-    config = hd.load_json(config_path)
+    config = db_helper.load_json(config_path)
 
     schema_path = f'{res_folder_path}/{config["schema"]}'
-    schema = hd.load_json(schema_path)
+    schema = db_helper.load_json(schema_path)
 
     sql_list = schema_to_sql(schema)
 
-    with hd.open_connection(config) as con:
+    with db_helper.open_connection(config) as con:
         create_tables(con, sql_list)
 
     print('create_db_schema Done')
