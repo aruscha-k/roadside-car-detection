@@ -24,5 +24,16 @@
             {"name": "value", "type": "text"},
             {"name": "segment_id", "type": "int", "references": "segments"}
         ]
+    },
+    {
+        "name": "cyclomedia",
+        "columns": [
+            {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "id", "type": "text", "primary key": true, "not null": true},
+            {"name": "segmentation_number", "type": "int"},
+            {"name": "order_number", "type": "int"},
+            {"name": "recording_lat", "type": "float8"},
+            {"name": "recording_lon", "type": "float8"}
+        ]
     }
 ]
