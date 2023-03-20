@@ -3,12 +3,11 @@ script for loading city data into cut db
 '''
 
 import pandas as pd
-import handy_defs as hd
+import DB_helpers as db_helper
 from sqlalchemy import create_engine
+from PATH_CONFIGS import LOAD_DATA_CONFIG_NAME, RES_FOLDER_PATH, DATASET_FOLDER_PATH
 
 
-RES_FOLDER_PATH = "./add-files"
-LOAD_DATA_CONFIG_NAME = "load_data_config.json"
 
 
 def coordinates_to_json(coordinates: list) -> str:
@@ -24,7 +23,7 @@ def extract_data(data_json, path_to_data_set, mapping_json):
     tables = [map['postgres']['table'] for map in mapping_json]
     keys = [map['postgres']['column'] for map in mapping_json]
     columns = [
-        [hd.navigate_json_dict(obj, map['path_to_property']) for obj in hd.navigate_json_dict(data_json, path_to_data_set)]
+        [db_helper.navigate_json_dict(obj, map['path_to_property']) for obj in db_helper.navigate_json_dict(data_json, path_to_data_set)]
         for map in mapping_json
     ]
     # column transformations
@@ -33,7 +32,7 @@ def extract_data(data_json, path_to_data_set, mapping_json):
         for map, col in zip(mapping_json, columns)
     ]
 
-    tables_dict = hd.group_by(zip(tables, keys, columns), lambda x: x[0], lambda x: x[1:])
+    tables_dict = db_helper.group_by(zip(tables, keys, columns), lambda x: x[0], lambda x: x[1:])
     print('extracted tables <table, [(column_name, item_count)]>')
     for k,v in tables_dict.items():
         print(k, [(t[0], len(t[1]))for t in v])
@@ -77,8 +76,8 @@ def load_data(data_sets, mappings, db_config) -> None:
 
 # methodto call, if this file will be imported and run by another file.
 # in this case res_folder_path and load_data_config_name can be set. otherwise the standart files will be used
-def main(res_folder_path:str=None, load_data_config_name:str=None) -> None:
-    global RES_FOLDER_PATH, LOAD_DATA_CONFIG_NAME
+def main(res_folder_path:str=None, load_data_config_name:str=None, data_set_path:str=None) -> None:
+    global RES_FOLDER_PATH, LOAD_DATA_CONFIG_NAME, DATASET_FOLDER_PATH
     
     print('Start load_data...')
 
@@ -86,20 +85,22 @@ def main(res_folder_path:str=None, load_data_config_name:str=None) -> None:
         res_folder_path = RES_FOLDER_PATH
     if not load_data_config_name:
         load_data_config_name = LOAD_DATA_CONFIG_NAME
+    if not data_set_path:
+        data_set_path = DATASET_FOLDER_PATH
 
     load_data_config_path = f'{res_folder_path}/{load_data_config_name}'
-    load_data_config = hd.load_json(load_data_config_path)
+    load_data_config = db_helper.load_json(load_data_config_path)
 
     db_config_path = f'{res_folder_path}/{load_data_config["db_config"]}'
-    db_config = hd.load_json(db_config_path)
+    db_config = db_helper.load_json(db_config_path)
 
     data_sets_filenames = [item['file_path'] for item in load_data_config['data_scources']]
     mappings_filenames = [item['mapping_path'] for item in load_data_config['data_scources']]
-    data_sets_paths = [f'{res_folder_path}/{name}' for name in data_sets_filenames]
+    data_sets_paths = [f'{data_set_path}/{name}' for name in data_sets_filenames]
     mappings_paths = [f'{res_folder_path}/{name}' for name in mappings_filenames]
 
-    data_sets = [hd.load_json(path, 'rb') for path in data_sets_paths]
-    mappings = [hd.load_json(path, 'rb') for path in mappings_paths]
+    data_sets = [db_helper.load_json(path, 'rb') for path in data_sets_paths]
+    mappings = [db_helper.load_json(path, 'rb') for path in mappings_paths]
 
     load_data(data_sets, mappings, db_config)
 
