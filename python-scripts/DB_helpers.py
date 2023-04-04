@@ -14,32 +14,67 @@ def load_json(path: str, mode: str=None):
         raise ValueError(f'cant import file by path "{path}"')
     return data
 
-def open_connection(config: dict):
+
+def open_connection(config: dict, toggle_input:bool):
     relevant_keys = {
         "host",
         "database",
         "port"
     }
-
-    args = {
-        "user": input('please enter db username: '), 
-        "password": input('please enter db password: '), 
-        **select_keys(config, relevant_keys)
-    }
+    if toggle_input:
+        args = {
+            "user": input('please enter db username: '), 
+            "password": input('please enter db password: '), 
+            **select_keys(config, relevant_keys)
+        }
+    else:
+        args = {
+            "user": "postgres", 
+            "password": "kaka", 
+            **select_keys(config, relevant_keys)
+        }
 
     connection = psycopg2.connect(**args)
     return connection
 
 def select_keys(d: dict, keys) -> dict:
+    """
+    The select_keys function is designed to return a new dictionary that contains only the key-value pairs from the original dictionary (d) where the key is present in the given list keys.
+    Parameters:
+        d (dict): the dictionary from which to select key-value pairs
+        keys (list): a list of keys to select from the dictionary
+    Returns:
+        dict: a new dictionary containing only the selected key-value pairs"""
     return {k:v for k,v in d.items() if k in keys}
 
+
 def navigate_json_dict(json_dict, path:list):
+    """
+    The navigate_json_dict function is designed to retrieve a nested value from a JSON dictionary using a path of keys.
+    Parameters:
+        json_dict (dict): the JSON dictionary to navigate
+        path (list): a list of keys representing the path to the desired value
+    Returns:
+        result_item (any): the value located at the end of the path"""
+
     result_item = json_dict
     for property in path:
-        result_item = result_item[property]
+        try:
+            result_item = result_item[property]
+        except KeyError:
+            return None
     return result_item
 
+
 def group_by(iterable, get_key, get_value=None) -> dict:
+    """
+    The group_by function is designed to group items from an iterable based on a key extracted from each item.
+    Parameters:
+        iterable (iterable): the iterable to group items from
+        get_key (callable): a function that extracts the key from each item
+        get_value (callable, optional): a function that extracts the value from each item. If not provided, the entire item will be used as the value.
+    Returns:
+        result (dict): a dictionary where each key corresponds to a group of items that share the same key"""
     result = dict()
     for item in iterable:
         key = get_key(item)
