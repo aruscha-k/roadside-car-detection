@@ -4,7 +4,7 @@ from requests.packages.urllib3.util.retry import Retry
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
-import street_imgs_config as CONF
+import STR_IMGs_config as CONF
 
 global global_base_url
 global_base_url = 'https://atlas.cyclomedia.com/PanoramaRendering/'
