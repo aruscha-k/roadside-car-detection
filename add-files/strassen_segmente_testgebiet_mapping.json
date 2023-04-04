@@ -22,6 +22,10 @@
             "postgres": {"table": "segments", "column": "street_type"}
         },
         {
+            "path_to_property": ["properties", "segm_gid"],
+            "postgres": {"table": "segments", "column": "segm_gid"}
+        },
+        {
             "path_to_property": ["geometry", "coordinates"],
             "postgres": {"table": "segments", "column": "geometry"},
             "transformation" : "coordinates_to_json"

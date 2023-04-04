@@ -4,6 +4,10 @@
         {
             "file_path": "strassen_segmente_testgebiet.json",
             "mapping_path": "strassen_segmente_testgebiet_mapping.json"
+        },
+        {
+            "file_path": "Verkehrsflaeche_Breite_Testgebiet.json",
+            "mapping_path": "verkehrsflaechen_testgebiet_mapping.json"
         }
     ]
 }
