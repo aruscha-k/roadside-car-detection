@@ -1,12 +1,13 @@
 from PIL import Image
 import rasterio
 import rasterio.mask
+from rasterio import Affine
 import pickle
 import folium
 import math 
 from shapely import geometry
 
-import path_configs as PATHS
+import PATH_CONFIGS as PATHS
 from helpers_geometry import calculate_slope, get_y_intercept, find_angle_to_x, calc_perpendicular, calc_interception_of_two_lines, calculate_start_end_pt
 from helpers_coordiantes import convert_coords, sort_coords
 
@@ -82,15 +83,20 @@ def cut_out_shape(bbox, out_tif, in_tif):
     with rasterio.open(in_tif) as src:
         try:
             out_image, out_transform = rasterio.mask.mask(src, [poly], crop=True)
+            # check if the image contains only zeros
+            if out_image[0].sum() == 0:
+                #print('The cropped image contains only zeros')
+                return False
             out_meta = src.meta
         except ValueError:
+            #print('Error cropping image')
             return False
 
     out_meta.update({"driver": "GTiff",
                  "height": out_image.shape[1],
                  "width": out_image.shape[2],
                  "transform": out_transform})
-
+    print ('writing ' + out_tif)
     with rasterio.open(out_tif, "w", **out_meta) as dest:
         dest.write(out_image)
     return True
@@ -108,11 +114,32 @@ def rotate_img_only(in_tif_folder, out_tif_folder, file_name, angle):
     rotate_img.save(out_tif_folder + file_name)    
 
 
+def rotate_img_and_coords(in_tif_folder, out_tif_folder, file_name, angle):
+    # Open the geotiff file
+    with rasterio.open(in_tif_folder + file_name) as src:
+        # Read the image data and affine transform matrix
+        data = src.read()
+        transform = src.transform
+
+        # Calculate the affine transform matrix for the rotated image
+        cos_angle = math.cos(math.radians(angle))
+        sin_angle = math.sin(math.radians(angle))
+        rotation_matrix = Affine(cos_angle, sin_angle, 0, -sin_angle, cos_angle, 0)
+
+        # Calculate the new affine transform matrix by combining the rotation matrix and the original transform
+        new_transform = transform * rotation_matrix
+
+        # Create a new geotiff file for the rotated image
+        with rasterio.open(out_tif_folder + file_name, 'w', driver='GTiff',
+                           width=data.shape[2], height=data.shape[1], count=data.shape[0],
+                           dtype=data.dtype, transform=new_transform) as dst:
+            # Write the rotated image data and metadata to the new file
+            dst.write(data)
 
 
 # ---------- helper methods for debugging ------------------ #
 def plot_order(coords,bboxes):
-
+    # this is using "EPSG:4326"
     center = [51.322523347273126, 12.375431206686596]
     map_leipzig = folium.Map(location=center, zoom_start=16)
     for idx, pt in enumerate(coords):
