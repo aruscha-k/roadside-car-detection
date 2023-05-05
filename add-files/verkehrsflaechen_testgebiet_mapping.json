@@ -22,12 +22,12 @@
             "postgres": {"table": "trafficareas", "column": "length_m"}
         },
         {
-            "path_to_property": ["properties", "median_bre"],
-            "postgres": {"table": "trafficareas", "column": "median_bre"}
+            "path_to_property": ["properties", "median_breite"],
+            "postgres": {"table": "trafficareas", "column": "median_breite"}
         },
         {
-            "path_to_property": ["properties", "stgrp_bez"],
-            "postgres": {"table": "trafficareas", "column": "str_bez"}
+            "path_to_property": ["properties", "stsa_text"],
+            "postgres": {"table": "trafficareas", "column": "stsa_text"}
         },
         {
             "path_to_property": ["geometry", "type"],

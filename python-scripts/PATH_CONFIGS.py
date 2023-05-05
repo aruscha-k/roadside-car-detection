@@ -1,5 +1,5 @@
 RES_FOLDER_PATH = "./add-files"
-DATASET_FOLDER_PATH = "datasets/Testgebiet_1"
+DATASET_FOLDER_PATH = "datasets/complete"
 
 IMG_FOLDER_PATH = "./imgs"
 CYCLO_IMG_FOLDER_PATH = IMG_FOLDER_PATH + "cyclomedia"

@@ -2,11 +2,11 @@
     "db_config": "db_config.json",
     "data_scources": [
         {
-            "file_path": "strassen_segmente_testgebiet.json",
+            "file_path": "2021_12_22_sdegdw_f66_d_StrassenSegmente_CLEANED.json",
             "mapping_path": "strassen_segmente_testgebiet_mapping.json"
         },
         {
-            "file_path": "Verkehrsflaeche_Breite_Testgebiet.json",
+            "file_path": "leipzig_verkehrsflaechen_breite_gdi_merged_20230504_CLEANED.json",
             "mapping_path": "verkehrsflaechen_testgebiet_mapping.json"
         }
     ]

@@ -4,8 +4,9 @@ script for loading city data into cut db
 
 import pandas as pd
 import DB_helpers as db_helper
+import psycopg2
 from sqlalchemy import create_engine
-from PATH_CONFIGS import LOAD_DATA_CONFIG_NAME, RES_FOLDER_PATH, DATASET_FOLDER_PATH
+from PATH_CONFIGS import LOAD_DATA_CONFIG_NAME, RES_FOLDER_PATH, DATASET_FOLDER_PATH, DB_CONFIG_FILE_NAME
 
 
 
@@ -152,5 +153,51 @@ def main(res_folder_path:str=None, load_data_config_name:str=None, data_set_path
     print('load_data Done')
 
 
+def create_segm_gid_relation(res_folder_path:str=None, load_data_config_name:str=None):
+    print('Creating area_segment_relation table ....')
+    global RES_FOLDER_PATH, LOAD_DATA_CONFIG_NAME
+
+    if not res_folder_path:
+        res_folder_path = RES_FOLDER_PATH
+    if not load_data_config_name:
+        load_data_config_name = DB_CONFIG_FILE_NAME
+
+    config_path = f'{res_folder_path}/{load_data_config_name}'
+    config = db_helper.load_json(config_path)
+
+    with db_helper.open_connection(config, False) as con:
+
+        cursor = con.cursor()
+        cursor.execute("""CREATE TABLE area_segment_relation AS SELECT id AS area_id, segm_gid FROM trafficareas;""")
+        cursor.execute("""ALTER TABLE area_segment_relation ADD COLUMN multiple_areas boolean, ADD COLUMN segment_id int""")
+
+        cursor.execute("""SELECT segm_gid FROM area_segment_relation""")
+        #iterate all segm_gids and get the segment Id and the number of segm_gis in area table
+        for segm_gid in cursor.fetchall():
+            segm_gid = segm_gid[0]
+       
+            cursor.execute("""SELECT id FROM segments WHERE segm_gid = (%s)""",(segm_gid,))
+            res = cursor.fetchone()
+            if res is None:
+                continue
+            else:
+                segment_id = res[0]
+
+            cursor.execute("""SELECT count(segm_gid) FROM trafficareas WHERE segm_gid = (%s)""",(segm_gid,))
+            num_entries = cursor.fetchone()
+            if num_entries is None:
+                num_entries = None
+
+            if num_entries[0] == 1:
+                cursor.execute("""UPDATE area_segment_relation 
+                                    SET segment_id = %s, multiple_areas = FALSE
+                                    WHERE segm_gid = %s""",(segment_id, segm_gid,))
+            if num_entries[0] > 1:
+                cursor.execute("""UPDATE area_segment_relation 
+                                SET segment_id = %s, multiple_areas = TRUE
+                                WHERE segm_gid = %s""",(segment_id, segm_gid,))
+
+
 if __name__ == "__main__":
-    main()
+   main()
+   create_segm_gid_relation()
