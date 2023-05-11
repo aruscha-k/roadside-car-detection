@@ -106,7 +106,11 @@ def get_recording_id(recordings_response, index):
     except IndexError:
         return "", ""
     first_rec_id = first_elem.attrib['recording-id']
-    time = datetime.strptime(first_elem.attrib['recording-date'], '%Y-%m-%dT%H:%M:%S.%fZ')
+    try:
+        time = datetime.strptime(first_elem.attrib['recording-date'], '%Y-%m-%dT%H:%M:%S.%fZ')
+    except ValueError:
+        new_time = (first_elem.attrib['recording-date'].replace("Z", "")) + ".00" + "Z"
+        time = datetime.strptime(new_time, '%Y-%m-%dT%H:%M:%S.%fZ')
 
     return first_rec_id, time
 
