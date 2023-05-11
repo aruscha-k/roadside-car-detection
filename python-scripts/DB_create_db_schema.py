@@ -63,3 +63,6 @@ def main(res_folder_path:str=None, config_file_name:str=None) -> None:
 
 if __name__ == "__main__":
     main()
+
+
+#DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;

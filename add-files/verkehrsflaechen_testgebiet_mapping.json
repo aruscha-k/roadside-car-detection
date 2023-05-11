@@ -35,7 +35,7 @@
         },
         {
             "path_to_property": ["geometry", "coordinates"],
-            "postgres": {"table": "trafficareas", "column": "geometry"},
+            "postgres": {"table": "trafficareas", "column": "geom_coordinates"},
             "transformation" : "coordinates_to_json"
         }
     ]
