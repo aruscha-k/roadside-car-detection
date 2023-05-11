@@ -174,15 +174,22 @@ def get_cyclomedia_data(db_config):
          
             print(f"------{i+1} of {len(segment_id_list)+1}, segment_ID: {segment_id}--------")
 
+            # check if information is valid
+            cursor.execute("""SELECT segmentation_number FROM segments_segmentation WHERE segment_id = %s""", (segment_id, ))
+            segmentation_no = cursor.fetchall()
+            if len(segmentation_no) == 1 and segmentation_no[0][0] == -1:
+                print("[!] information invalid - skip")
+                continue
+
             cursor.execute("""SELECT multiple_areas FROM area_segment_relation WHERE segment_id = %s""", (segment_id, ))
             multiple_areas = cursor.fetchone()
             
             if multiple_areas is None:
-                print("[!!!] no information about traffic area")
+                print("[!!!] no information about traffic area - skip")
                 continue
 
             elif multiple_areas[0] == True:
-                print("[!!!] multiple traffic areas")
+                print("[!!!] multiple traffic areas - skip")
                 #TODO!
                 continue
 
