@@ -100,6 +100,9 @@ def extract_recording_location_from_meta(response):
 # RETURNS:
 # first_rec_id: the first recording_ID in the list
 def get_recording_id(recordings_response, index):
+    if recordings_response.status_code == 404:
+        return "", ""
+    
     recordings_xml = ET.fromstring(recordings_response.text)
     try:
         first_elem = recordings_xml[index]
