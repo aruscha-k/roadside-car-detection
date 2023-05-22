@@ -26,6 +26,10 @@
             "postgres": {"table": "segments", "column": "segm_gid"}
         },
         {
+            "path_to_property": ["properties", "ot_name"],
+            "postgres": {"table": "segments", "column": "ot_name"}
+        },
+        {
             "path_to_property": ["geometry", "type"],
             "postgres": {"table": "segments", "column": "geom_type"}
         },
