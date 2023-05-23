@@ -56,14 +56,13 @@ def create_segmentation(db_config):
             if geom_type == "LineString":
                 cursor.execute("""SELECT geom_coordinates FROM segments WHERE id = %s""", (segment_id, ))
                 coords = cursor.fetchone()[0]
-                print(coords)
 
                 #TODO: check if segment exists already?
 
                 # if more than two coordinates, street has a bend => 
                 # partition the segment further and extract every two pairs of coordinate
                 if len(coords) > 2:
-                    print(f"[i] more than 2 coords: {segment_id}")
+                    #print(f"[i] more than 2 coords: {segment_id}")
 
                     converted_coords = [convert_coords("EPSG:25833", "EPSG:4326", pt[0], pt[1]) for pt in coords]
                     str_start, str_end = calculate_start_end_pt(converted_coords)
@@ -91,10 +90,33 @@ def create_segmentation(db_config):
                     sorted_coords = [convert_coords("EPSG:4326", "EPSG:25833", pt[0], pt[1]) for pt in sorted_coords]
                     cursor.execute("""INSERT INTO segments_segmentation VALUES (%s, %s, %s, %s, %s, %s) """, (segment_id, segmentation_counter,  sorted_coords[0][0], sorted_coords[0][1], sorted_coords[1][0], sorted_coords[1][1], ))
 
+def add_ot_to_segments(db_config):
+    print("Add OT to segments...")
+    with db_helper.open_connection(db_config, False) as con:
+        cursor = con.cursor()
+
+        #convert geometry from JSON to postgis column type for tables segemtns and ortsteile
+        # make sure POSTGIS EXTENSION IS INSTALLED
+        for table in ['ortsteile', 'segments']:
+            cursor.execute(""" 
+                    ALTER TABLE {} ADD COLUMN geometry_from_json geometry;
+                    UPDATE {} SET geometry_from_json = ST_GeomFromGeoJSON(geometry);
+                    ALTER TABLE {} DROP COLUMN geometry;""".format(table, table, table))
+
+        # add ot_name to segments table checking with ortsteile geometry
+        cursor.execute(""" 
+                UPDATE segments
+                SET ot_name = ot.ot_name
+                FROM ortsteile ot
+                WHERE ST_Intersects(segments.geometry_from_json, ot.geometry_from_json);""")
+        
+        con.commit()
+
 
 if __name__ == "__main__":
     config_path = f'{RES_FOLDER_PATH}/{DB_CONFIG_FILE_NAME}'
     db_config = db_helper.load_json(config_path)
 
+    add_ot_to_segments(db_config)
     create_segm_gid_relation(db_config)
     create_segmentation(db_config)
