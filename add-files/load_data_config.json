@@ -10,7 +10,7 @@
             "mapping_path": "verkehrsflaechen_testgebiet_mapping.json"
         },
         {
-            "file_path": "leipzig_ortsteile.json",
+            "file_path": "leipzig_ortsteile_CLEANED.json",
             "mapping_path": "ortsteile_mapping.json"
         }
 
