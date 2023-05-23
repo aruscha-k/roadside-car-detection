@@ -48,17 +48,17 @@ def select_keys(d: dict, keys) -> dict:
     return {k:v for k,v in d.items() if k in keys}
 
 
-def navigate_json_dict(json_dict, path:list):
+def navigate_json_dict(json_dict, json_path:list):
     """
     The navigate_json_dict function is designed to retrieve a nested value from a JSON dictionary using a path of keys.
     Parameters:
         json_dict (dict): the JSON dictionary to navigate
-        path (list): a list of keys representing the path to the desired value
+        json_path (list): a list of keys representing the path to the desired value
     Returns:
         result_item (any): the value located at the end of the path"""
 
     result_item = json_dict
-    for property in path:
+    for property in json_path:
         try:
             result_item = result_item[property]
         except KeyError:

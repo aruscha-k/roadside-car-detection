@@ -66,3 +66,4 @@ if __name__ == "__main__":
 
 
 #DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;
+#CREATE EXTENSION IF NOT EXISTS postgis;

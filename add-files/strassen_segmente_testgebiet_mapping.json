@@ -39,6 +39,11 @@
             "transformation" : "coordinates_to_json"
         },
         {
+            "path_to_property": ["geometry"],
+            "postgres": {"table": "segments", "column": "geometry"},
+            "transformation" : "geom_to_json"    
+        },
+        {
             "path_to_property": ["properties", "laenge_m"],
             "postgres": {"table": "segments", "column": "laenge_m"}
         },

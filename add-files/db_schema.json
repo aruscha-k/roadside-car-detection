@@ -13,10 +13,12 @@
             {"name": "street_id", "type": "text", "references": "streets"},
             {"name": "segm_gid", "type": "int"},
             {"name": "sstrgsname", "type": "text"},
+            {"name": "laenge_m", "type": "float8"},
+            {"name": "ot_name", "type": "text"},
             {"name": "geom_type", "type": "text"},
             {"name": "geom_coordinates", "type": "json"},
-            {"name": "laenge_m", "type": "float8"},
-            {"name": "ot_name", "type": "text"}
+            {"name": "geometry", "type": "jsonb"}
+          
         ]
     },
     {
@@ -46,7 +48,8 @@
             {"name": "ot_nr", "type": "text", "primary key": true, "not null": true},
             {"name": "ot_name", "type": "text"},
             {"name": "geom_type", "type": "text"},
-            {"name": "geom_coordinates", "type": "json"}
+            {"name": "geom_coordinates", "type": "json"},
+            {"name": "geometry", "type": "jsonb"}
         ]
     },
     {
@@ -58,7 +61,7 @@
             {"name": "order_number", "type": "int"},
             {"name": "recording_lat", "type": "float8"},
             {"name": "recording_lon", "type": "float8"},
-            {"name": "recording_year" }
+            {"name": "recording_year", "type": "int" }
         ],
         "constraints": {
             "primaryKey": ["segment_id", "record_id"]
@@ -69,7 +72,7 @@
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
             {"name": "segmentation_number", "type": "int"},
-            {"name": "recording_year" }
+            {"name": "recording_year", "type": "int" }
         ],
         "constraints": {
             "primaryKey": ["segment_id", "segmentation_number"]

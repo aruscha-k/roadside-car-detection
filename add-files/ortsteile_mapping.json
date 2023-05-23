@@ -23,6 +23,11 @@
         {
             "path_to_property": ["properties", "ot_name"],
             "postgres": {"table": "ortsteile", "column": "ot_name"}    
+        },
+        {
+            "path_to_property": ["geometry"],
+            "postgres": {"table": "ortsteile", "column": "geometry"},    
+            "transformation" : "geom_to_json"
         }
         ]
     }

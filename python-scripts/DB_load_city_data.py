@@ -2,6 +2,7 @@
 script for loading city data into cut db
 '''
 
+import json
 import pandas as pd
 import DB_helpers as db_helper
 import psycopg2
@@ -12,8 +13,14 @@ from PATH_CONFIGS import LOAD_DATA_CONFIG_NAME, RES_FOLDER_PATH, DATASET_FOLDER_
 
 def coordinates_to_json(coordinates: list) -> str:
     return str(coordinates)
+
+def geom_to_json(geometry: dict):
+    return json.dumps(geometry)
+
+
 TRANSFORMATIONS = {
-    "coordinates_to_json": coordinates_to_json
+    "coordinates_to_json": coordinates_to_json,
+    "geom_to_json": geom_to_json
 }
 
 
