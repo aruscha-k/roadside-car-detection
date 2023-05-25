@@ -80,20 +80,6 @@ def extract_recording_location_from_meta(response):
     return recording_lat, recording_lon
 
 
-# read metadata to get the position where the picture was taken from
-# PARAMS:
-# response: the response of a cyclomedia api call returning an image for a gps position
-# RETURNS:
-# recording_lat: latitude of camera position
-# recording_lon: longitude of camera position
-def extract_recording_location_from_meta(response):
-    header_meta = response.headers
-    # print(header_meta)
-    recording_lat = float(header_meta['RecordingLocation-X'])
-    recording_lon = float(header_meta['RecordingLocation-Y'])
-    return recording_lat, recording_lon
-
-
 # return the i-th element of all nearest recordings
 # PARAMS:
 # recordings_response: API response for list nearest recordings
@@ -110,12 +96,12 @@ def get_recording_id(recordings_response, index):
         return "", ""
     first_rec_id = first_elem.attrib['recording-id']
     try:
-        time = datetime.strptime(first_elem.attrib['recording-date'], '%Y-%m-%dT%H:%M:%S.%fZ')
+        rec_date = datetime.strptime(first_elem.attrib['recording-date'], '%Y-%m-%dT%H:%M:%S.%fZ')
     except ValueError:
         new_time = (first_elem.attrib['recording-date'].replace("Z", "")) + ".00" + "Z"
-        time = datetime.strptime(new_time, '%Y-%m-%dT%H:%M:%S.%fZ')
+        rec_date = datetime.strptime(new_time, '%Y-%m-%dT%H:%M:%S.%fZ')
 
-    return first_rec_id, time
+    return first_rec_id, rec_date
 
 
 # return the all nearest recording IDs

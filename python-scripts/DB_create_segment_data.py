@@ -41,7 +41,7 @@ def get_nearest_recordings_for_street_pts(str_start: tuple, str_end:tuple, shift
         return rec_IDs
     
 
-    rec_IDs.append({'recording_id': first_nearest_rec_ID, 'street_point': (str_start[0], str_start[1]), 'recording_point': ()})
+    rec_IDs.append({'recording_id': first_nearest_rec_ID, 'street_point': (str_start[0], str_start[1]), 'recording_point': (), 'recording_year': start_rec_time.year})
     #print(f"start point: {str_start[0], str_start[1]}, recording id:  {first_nearest_rec_ID} - time: {start_rec_time}")
     
     # ! points are now shifted corresponding to the nearest recording position, not the start point of the street from data
@@ -87,7 +87,7 @@ def get_nearest_recordings_for_street_pts(str_start: tuple, str_end:tuple, shift
             #print("SECOND WHILE recording index", recording_index, "recID", nearest_rec_ID, "bool:", first_run, "tdelta", t_delta, "time: ", rec_time)
      
         if nearest_rec_ID not in [item["recording_id"] for item in rec_IDs]:
-            rec_IDs.append({'recording_id': nearest_rec_ID, 'street_point': (x_shifted, y_shifted), 'recording_point': ()})
+            rec_IDs.append({'recording_id': nearest_rec_ID, 'street_point': (x_shifted, y_shifted), 'recording_point': (), 'recording_year': rec_time.year})
             
         x_shifted, y_shifted = shift_pt_along_street((x_shifted, y_shifted), x_angle, shift_length, slope_origin, b)
         #print(f"next point: {x_shifted,y_shifted}", "rec_ID_keys", [item["recording_id"] for item in rec_IDs])
@@ -156,86 +156,75 @@ def load_into_db(rec_IDs, segment_id, segmentation_number, connection):
             for idx, dict_item in enumerate(rec_IDs):
                 try:
                     record_lat, record_lon = dict_item['recording_point'][0], dict_item['recording_point'][1]
-                    cursor.execute("""INSERT INTO segments_cyclomedia VALUES (%s, %s, %s, %s, %s, %s) """, (segment_id, dict_item['recording_id'], segmentation_number, idx, record_lat, record_lon,))
+                    cursor.execute("""INSERT INTO segments_cyclomedia VALUES (%s, %s, %s, %s, %s, %s, %s) """, (segment_id, dict_item['recording_id'], segmentation_number, idx, record_lat, record_lon,dict_item['recording_year'], ))
                 except psycopg2.errors.UniqueViolation as e:
                     print(f"DB error with segment {segment_id} and segmentation number {segmentation_number} ")
                     connection.rollback()
                     continue
 
 
-
-def get_cyclomedia_data(db_config):
+# # suburb_list = [(ot_name, ot_nr), ..], in this case ot_nr is not relevant and can be 0 all the time
+def get_cyclomedia_data(db_config, suburb_list):
     print("getting cyclomedia data...")
     with db_helper.open_connection(db_config, False) as con:
 
         cursor = con.cursor()
-        cursor.execute("""SELECT id FROM segments""")
-        segment_id_list = [item[0] for item in cursor.fetchall()]
-        for i, segment_id in enumerate(segment_id_list):
-         
-            print(f"------{i+1} of {len(segment_id_list)+1}, segment_ID: {segment_id}--------")
+        if suburb_list == []:
+             # get ortsteile and their number codes
+            cursor.execute("""SELECT ot_name, ot_nr FROM ortsteile""")
+            suburb_list = cursor.fetchall()
+        
+        for ot_name, ot_nr in suburb_list:
 
-            # check if information is valid
-            cursor.execute("""SELECT segmentation_number FROM segments_segmentation WHERE segment_id = %s""", (segment_id, ))
-            segmentation_no = cursor.fetchall()
-            if len(segmentation_no) == 1 and segmentation_no[0][0] == -1:
-                print("[!] information invalid - skip")
-                continue
-
-            cursor.execute("""SELECT multiple_areas FROM area_segment_relation WHERE segment_id = %s""", (segment_id, ))
-            multiple_areas = cursor.fetchone()
+            cursor.execute("""SELECT id FROM segments WHERE ot_name = %s""", (ot_name, ))
+            segment_id_list = [item[0] for item in cursor.fetchall()]
+            for i, segment_id in enumerate(segment_id_list):
             
-            if multiple_areas is None:
-                print("[!!!] no information about traffic area - skip")
-                continue
+                print(f"------{i+1} of {len(segment_id_list)+1}, segment_ID: {segment_id}--------")
 
-            elif multiple_areas[0] == True:
-                print("[!!!] multiple traffic areas - skip")
-                #TODO!
-                continue
-
-            elif multiple_areas[0] == False:
-                cursor.execute("""SELECT * FROM segments_segmentation WHERE segment_id = %s ORDER BY segmentation_number""", (segment_id, ))
-                segmentation_result_rows = cursor.fetchall()
-
-                if segmentation_result_rows == []:
-                    print("NO RESULT FOR ID %s", segment_id)
+                # check if information is valid
+                cursor.execute("""SELECT segmentation_number FROM segments_segmentation WHERE segment_id = %s""", (segment_id, ))
+                segmentation_no = cursor.fetchall()
+                if len(segmentation_no) == 1 and segmentation_no[0][0] == -1:
+                    print("[!] information invalid - skip")
                     continue
-                else:
-                    #check if the data already exists: TODO
-                    cursor.execute("""SELECT array_agg(segmentation_number) FROM segments_cyclomedia WHERE segment_id = %s GROUP BY segmentation_number""", (segment_id, ))
-                    cyclo_result_rows = cursor.fetchall()
-                    #print(segmentation_result_rows)
-                    #print(cyclo_result_rows)
-                    if len(cyclo_result_rows) == len(segmentation_result_rows):
-                        print("EXIST - SKIP")
-                        continue
 
-
-            shift_length = 3
-            # segment is not divided into smaller parts
-            if len(segmentation_result_rows) == 1:
-                segmentation_number = segmentation_result_rows[0][1]
-                start_lat, start_lon = segmentation_result_rows[0][2], segmentation_result_rows[0][3]
-                end_lat, end_lon = segmentation_result_rows[0][4], segmentation_result_rows[0][5]
-                temp_coords = [(start_lat, start_lon), (end_lat, end_lon)]
-                y_angle = find_angle_to_y(temp_coords)
-                slope_origin = calculate_slope(temp_coords)
-
-                rec_IDs = get_nearest_recordings_for_street_pts((start_lat, start_lon), (end_lat, end_lon), shift_length, slope_origin, [])
-                rec_IDs = get_image_IDs_from_cyclomedia(segment_id, segmentation_number, rec_IDs, slope_origin, y_angle, 9)
-
-                load_into_db(rec_IDs=rec_IDs, segment_id = segment_id, segmentation_number=segmentation_number, connection=con)
-                con.commit()
-    
-            # segment is divided into smaller parts
-            elif len(segmentation_result_rows) > 1:
+                cursor.execute("""SELECT multiple_areas FROM area_segment_relation WHERE segment_id = %s""", (segment_id, ))
+                multiple_areas = cursor.fetchone()
                 
-                for idx, row in enumerate(segmentation_result_rows):
-                    segmentation_number = segmentation_result_rows[idx][1]
-                    print("--segmentation_number: ", segmentation_number)
-                    start_lat, start_lon = segmentation_result_rows[idx][2], segmentation_result_rows[idx][3]
-                    end_lat, end_lon = segmentation_result_rows[idx][4], segmentation_result_rows[idx][5]
+                if multiple_areas is None:
+                    print("[!!!] no information about traffic area - skip")
+                    continue
+
+                elif multiple_areas[0] == True:
+                    print("[!!!] multiple traffic areas - skip")
+                    #TODO!
+                    continue
+
+                elif multiple_areas[0] == False:
+                    cursor.execute("""SELECT * FROM segments_segmentation WHERE segment_id = %s ORDER BY segmentation_number""", (segment_id, ))
+                    segmentation_result_rows = cursor.fetchall()
+
+                    if segmentation_result_rows == []:
+                        print("NO RESULT FOR ID %s", segment_id)
+                        continue
+                    else:
+                        #check if the data already exists: TODO
+                        cursor.execute("""SELECT array_agg(segmentation_number) FROM segments_cyclomedia WHERE segment_id = %s GROUP BY segmentation_number""", (segment_id, ))
+                        cyclo_result_rows = cursor.fetchall()
+                        #print(segmentation_result_rows)
+                        #print(cyclo_result_rows)
+                        if len(cyclo_result_rows) == len(segmentation_result_rows):
+                            print("EXIST - SKIP")
+                            continue
+
+
+                shift_length = 3
+                # segment is not divided into smaller parts
+                if len(segmentation_result_rows) == 1:
+                    segmentation_number = segmentation_result_rows[0][1]
+                    start_lat, start_lon = segmentation_result_rows[0][2], segmentation_result_rows[0][3]
+                    end_lat, end_lon = segmentation_result_rows[0][4], segmentation_result_rows[0][5]
                     temp_coords = [(start_lat, start_lon), (end_lat, end_lon)]
                     y_angle = find_angle_to_y(temp_coords)
                     slope_origin = calculate_slope(temp_coords)
@@ -243,13 +232,31 @@ def get_cyclomedia_data(db_config):
                     rec_IDs = get_nearest_recordings_for_street_pts((start_lat, start_lon), (end_lat, end_lon), shift_length, slope_origin, [])
                     rec_IDs = get_image_IDs_from_cyclomedia(segment_id, segmentation_number, rec_IDs, slope_origin, y_angle, 9)
 
-                    load_into_db(rec_IDs=rec_IDs, segment_id=segment_id, segmentation_number=segmentation_number, connection=con)
+                    load_into_db(rec_IDs=rec_IDs, segment_id = segment_id, segmentation_number=segmentation_number, connection=con)
                     con.commit()
-                  
-            #break
+        
+                # segment is divided into smaller parts
+                elif len(segmentation_result_rows) > 1:
+                    
+                    for idx, row in enumerate(segmentation_result_rows):
+                        segmentation_number = segmentation_result_rows[idx][1]
+                        print("--segmentation_number: ", segmentation_number)
+                        start_lat, start_lon = segmentation_result_rows[idx][2], segmentation_result_rows[idx][3]
+                        end_lat, end_lon = segmentation_result_rows[idx][4], segmentation_result_rows[idx][5]
+                        temp_coords = [(start_lat, start_lon), (end_lat, end_lon)]
+                        y_angle = find_angle_to_y(temp_coords)
+                        slope_origin = calculate_slope(temp_coords)
+
+                        rec_IDs = get_nearest_recordings_for_street_pts((start_lat, start_lon), (end_lat, end_lon), shift_length, slope_origin, [])
+                        rec_IDs = get_image_IDs_from_cyclomedia(segment_id, segmentation_number, rec_IDs, slope_origin, y_angle, 9)
+
+                        load_into_db(rec_IDs=rec_IDs, segment_id=segment_id, segmentation_number=segmentation_number, connection=con)
+                        con.commit()
+                    
+                #break
 
 
 if __name__ == "__main__":
     config_path = f'{RES_FOLDER_PATH}/{DB_CONFIG_FILE_NAME}'
     db_config = db_helper.load_json(config_path)
-    get_cyclomedia_data(db_config)
+    get_cyclomedia_data(db_config, [('Lindenau',0)])
