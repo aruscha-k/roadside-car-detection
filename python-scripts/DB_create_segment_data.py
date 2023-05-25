@@ -34,6 +34,7 @@ def get_nearest_recordings_for_street_pts(str_start: tuple, str_end:tuple, shift
     nearest_recordings_response = list_nearest_recordings(CONF.cyclo_srs, str_start[0], str_start[1], {}, False)
     first_nearest_rec_ID, start_rec_time = get_recording_id(nearest_recordings_response, index=0)
     if first_nearest_rec_ID == "" and first_run:
+        x_shifted, y_shifted = shift_pt_along_street((str_start[0], str_start[1]), x_angle, shift_length, slope_origin, b)
         rec_IDs = get_nearest_recordings_for_street_pts((x_shifted,y_shifted), str_end, shift_length, slope_origin, rec_IDs)
         return rec_IDs
     elif first_nearest_rec_ID == "" and not first_run:

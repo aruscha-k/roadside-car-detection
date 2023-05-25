@@ -6,7 +6,7 @@ import folium
 import math 
 from shapely import geometry
 
-import path_configs as PATHS
+import PATH_CONFIGS as PATHS
 from helpers_geometry import calculate_slope, get_y_intercept, find_angle_to_x, calc_perpendicular, calc_interception_of_two_lines, calculate_start_end_pt
 from helpers_coordiantes import convert_coords, sort_coords
 
