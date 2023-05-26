@@ -3,8 +3,12 @@ import os
 DB_CONFIG_FILE_NAME = "db_config.json"
 LOAD_DATA_CONFIG_NAME = "load_data_config.json"
 
+CYCLO_DETECTION_MODEL = "streetmodel_80img_00025lr_1500bs.pth"
+AIR_DETECTION_MODEL = ""
+
 RES_FOLDER_PATH = "./add-files"
-DATASET_FOLDER_PATH = "datasets/complete/"
+DATASET_FOLDER_PATH = "datasets/complete"
+
 
 # ------ img resources --------#
 IMG_FOLDER_PATH = "./imgs/"

@@ -25,7 +25,7 @@ def create_air_segments(db_config, suburb_list):
             segment_gid_list = [item[1] for item in id_fetch]
 
             # in tif
-            in_tif = DATASET_FOLDER_PATH + "air-imgs/" + str(recording_year) +"/" + str(ot_nr) +"_"+ str(recording_year) + ".tif"
+            in_tif = DATASET_FOLDER_PATH + "/air-imgs/" + str(recording_year) +"/" + str(ot_nr) +"_"+ str(recording_year) + ".tif"
 
             for i, segment_id in enumerate(segment_id_list):
                 print(f"------{i+1} of {len(segment_id_list)+1}, segment_ID: {segment_id}--------")
