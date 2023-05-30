@@ -2,12 +2,13 @@
 from DB_helpers import open_connection, load_json
 import DB_helpers as db_helper
 import STR_IMGs_config as CONF
-from PATH_CONFIGS import CYCLO_IMG_FOLDER_PATH, RES_FOLDER_PATH, DB_CONFIG_FILE_NAME
+from PATH_CONFIGS import CYCLO_IMG_FOLDER_PATH, RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, DB_USER
 from ML_STR_IMGs_methods import run_detection
 import os
+import psycopg2
 
 def run(db_config, suburb_list):
-    with db_helper.open_connection(db_config, False) as con:
+    with db_helper.open_connection(db_config, DB_USER) as con:
         cursor = con.cursor()
 
         if suburb_list == []:
@@ -51,14 +52,18 @@ def run(db_config, suburb_list):
                         else:
                             print("invalid path", img_file_path)
 
-                    run_detection(img_path_list)
+                    parking_dict = run_detection(img_path_list)
 
-                    # TODO: write to DB
+                    #  write to DB
+                    for key, value in parking_dict.items():
 
-                if i == 5:
-                    break
-
-
+                        for i in range(0, len(parking_dict[key])):
+                            db_key = "parking:" + key
+                            try:
+                                cursor.execute("""INSERT INTO tags VALUES (%s, %s, %s) """, (db_key, value[0], segment_id,))
+                            except psycopg2.errors.UniqueViolation as e:
+                                continue
+                    con.commit()
 
 
 

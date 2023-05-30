@@ -34,13 +34,15 @@
         ]
     },
     {
-        "name": "tags",
+        "name": "tags_cyclomedia",
         "columns": [
-            {"name": "id", "type": "SERIAL", "primary key": true, "not null": true},
+            {"name": "segment_id", "type": "int", "references": "segments"},
             {"name": "key", "type": "text"},
-            {"name": "value", "type": "text"},
-            {"name": "segment_id", "type": "int", "references": "segments"}
-        ]
+            {"name": "value", "type": "text"} 
+        ],
+        "constraints": {
+            "primaryKey": ["segment_id", "key", "value"]
+        }
     },
     {
         "name": "ortsteile",

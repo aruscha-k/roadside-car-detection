@@ -99,37 +99,43 @@ def run_detection(img_list):
                 predictions['right'].append(right)
                 
     print(predictions)
-    calculate_parking(predictions)
+    parking_dict =  calculate_parking(predictions)
             
-    return predictions
+    return parking_dict
 
 
 def calculate_parking(predictions):
     class_dict = {0: 'diagonal/senkrecht', 1:'parallel', 2:'baumscheibe', -1: 'kein Auto'}
-    
-    #num_predictions_left = len(predictions['left'])
+    parking_dict = {'left': [], 'right': []}
     
     all_left = reduce(lambda a,b: a+b, predictions['left'])
-        
-    #num_predictions_right = len(predictions['right'])
     all_right = reduce(lambda a,b: a+b, predictions['right'])
     
+    full_percentage = 100
     for i in range(0,3):
-        print(f"left: {i+1}. run")
         num_left_most_common = Counter(all_left).most_common(i+1)[i][1]
-        
         class_left_most_common = Counter(all_left).most_common(i+1)[i][0]
         left_percentage = num_left_most_common/len(all_left)*100
+        full_percentage = full_percentage - left_percentage
+        parking_dict['left'].append((class_dict[class_left_most_common],round(left_percentage,2)))
+
+        print(f"left: {i+1}. run")
         print(f"Class: {class_dict[class_left_most_common]} dominates {round(left_percentage,2)} % on left side.")
-        if left_percentage >= 51:
+        if left_percentage >= 51 or full_percentage <= 25:
             break
-        
+    
+    full_percentage = 100
     for i in range(0,3):
-        print(f"right: {i+1}. run")
+        
         num_right_most_common = Counter(all_right).most_common(i+1)[i][1]
         class_right_most_common = Counter(all_right).most_common(i+1)[i][0]
         right_percentage = num_right_most_common/len(all_right)*100
-        print(f"Class: {class_dict[class_right_most_common]} dominates {round(right_percentage,2)} % on right side.")
+        full_percentage = full_percentage - right_percentage
+        parking_dict['right'].append((class_dict[class_right_most_common],round(right_percentage,2)))
         
-        if right_percentage >= 51:
+        print(f"right: {i+1}. run")
+        print(f"Class: {class_dict[class_right_most_common]} dominates {round(right_percentage,2)} % on right side.")
+        if right_percentage >= 51 or full_percentage <= 25:
             break
+
+    return parking_dict
