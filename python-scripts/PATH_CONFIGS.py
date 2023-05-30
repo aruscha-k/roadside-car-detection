@@ -9,6 +9,8 @@ AIR_DETECTION_MODEL = ""
 RES_FOLDER_PATH = "./add-files"
 DATASET_FOLDER_PATH = "datasets/complete"
 
+DB_USER_ARUSCHA = os.path.join(RES_FOLDER_PATH, 'db_aruscha.json')
+DB_USER = DB_USER_ARUSCHA
 
 # ------ img resources --------#
 IMG_FOLDER_PATH = "./imgs/"

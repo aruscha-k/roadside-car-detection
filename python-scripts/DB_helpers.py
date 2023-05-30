@@ -15,22 +15,21 @@ def load_json(path: str, mode: str=None):
     return data
 
 
-def open_connection(config: dict, toggle_input:bool):
+def open_connection(config: dict, db_user_config:str):
     relevant_keys = {
         "host",
         "database",
         "port"
     }
-    if toggle_input:
+
+    with open(db_user_config) as f:
+        user_config = json.load(f)
+        user = user_config['username']
+        pw = user_config['password']
+
         args = {
-            "user": input('please enter db username: '), 
-            "password": input('please enter db password: '), 
-            **select_keys(config, relevant_keys)
-        }
-    else:
-        args = {
-            "user": "postgres", 
-            "password": "kaka", 
+            "user": user, 
+            "password": pw, 
             **select_keys(config, relevant_keys)
         }
 

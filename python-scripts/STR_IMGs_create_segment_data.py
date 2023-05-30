@@ -166,7 +166,7 @@ def load_into_db(rec_IDs, segment_id, segmentation_number, connection):
 # # suburb_list = [(ot_name, ot_nr), ..], in this case ot_nr is not relevant and can be 0 all the time
 def get_cyclomedia_data(db_config, suburb_list):
     print("getting cyclomedia data...")
-    with db_helper.open_connection(db_config, False) as con:
+    with db_helper.open_connection(db_config, PATHS.DB_USER) as con:
 
         cursor = con.cursor()
         if suburb_list == []:

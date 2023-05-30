@@ -1,13 +1,13 @@
 import DB_helpers as db_helper
 from helpers_geometry import calculate_start_end_pt
 from helpers_coordiantes import convert_coords, sort_coords
-from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME
+from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, DB_USER
 
 
 def create_segm_gid_relation(db_config):
     print('Creating area_segment_relation table ....')
 
-    with db_helper.open_connection(db_config, False) as con:
+    with db_helper.open_connection(db_config, DB_USER) as con:
 
         cursor = con.cursor()
         cursor.execute("""CREATE TABLE area_segment_relation AS SELECT id AS area_id, segm_gid FROM trafficareas;""")
@@ -43,7 +43,7 @@ def create_segm_gid_relation(db_config):
 def create_segmentation(db_config):
     print('Creating segmentations ....')
 
-    with db_helper.open_connection(db_config, False) as con:
+    with db_helper.open_connection(db_config, DB_USER) as con:
         cursor = con.cursor()
         cursor.execute("""SELECT id FROM segments""")
         segment_id_list = [item[0] for item in cursor.fetchall()]
@@ -92,7 +92,7 @@ def create_segmentation(db_config):
 
 def add_ot_to_segments(db_config):
     print("Add OT to segments...")
-    with db_helper.open_connection(db_config, False) as con:
+    with db_helper.open_connection(db_config, DB_USER) as con:
         cursor = con.cursor()
 
         #convert geometry from JSON to postgis column type for tables segemtns and ortsteile

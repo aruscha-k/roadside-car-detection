@@ -1,12 +1,12 @@
 import DB_helpers as db_helper
-from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, AIR_TEMP_CROPPED_FOLDER_PATH, AIR_CROPPED_ROTATED_FOLDER_PATH, DATASET_FOLDER_PATH
+from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, AIR_TEMP_CROPPED_FOLDER_PATH, AIR_CROPPED_ROTATED_FOLDER_PATH, DATASET_FOLDER_PATH, DB_USER
 from AIR_IMGs_process import calculate_bounding_box, get_rotation_angle_for_img, cut_out_shape, rotate_img_only
 
 
 # suburb_list = [(ot_name, ot_nr), ..]
 def create_air_segments(db_config, suburb_list):
 
-    with db_helper.open_connection(db_config, False) as con:
+    with db_helper.open_connection(db_config, DB_USER) as con:
         recording_year = 2019
         cursor = con.cursor()
        
