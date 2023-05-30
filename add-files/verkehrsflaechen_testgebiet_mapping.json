@@ -1,0 +1,42 @@
+{
+    "transmission_order" : [
+        "trafficareas"
+    ],
+    "tables_primary_keys" : [
+
+        {"table": "trafficareas", "key":"id"}
+    ],
+    "path_to_data_set": ["features"],
+    "mapping" : [
+
+        {
+            "path_to_property": ["properties", "objectid"],
+            "postgres": {"table": "trafficareas", "column": "id"}
+        },
+        {
+            "path_to_property": ["properties", "segm_gid"],
+            "postgres": {"table": "trafficareas", "column": "segm_gid"}
+        },
+        {
+            "path_to_property": ["properties", "laenge"],
+            "postgres": {"table": "trafficareas", "column": "length_m"}
+        },
+        {
+            "path_to_property": ["properties", "median_breite"],
+            "postgres": {"table": "trafficareas", "column": "median_breite"}
+        },
+        {
+            "path_to_property": ["properties", "stsa_text"],
+            "postgres": {"table": "trafficareas", "column": "stsa_text"}
+        },
+        {
+            "path_to_property": ["geometry", "type"],
+            "postgres": {"table": "trafficareas", "column": "geom_type"}
+        },
+        {
+            "path_to_property": ["geometry", "coordinates"],
+            "postgres": {"table": "trafficareas", "column": "geometry"},
+            "transformation" : "coordinates_to_json"
+        }
+    ]
+}

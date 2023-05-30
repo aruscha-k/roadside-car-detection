@@ -3,7 +3,7 @@ script vor db creation as given in schema config
 '''
 
 import DB_helpers as db_helper
-from PATH_CONFIGS import RES_FOLDER_PATH, CONFIG_FILE_NAME
+from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME
 
 
 def schema_to_sql(schema: dict) -> list[str]:
@@ -39,14 +39,14 @@ def create_tables(connection, sql_list: list[str]):
 # methodto call, if this file will be imported and run by another file.
 # in this case res_folder_path and config_file_name can be set. otherwise the standart files will be used
 def main(res_folder_path:str=None, config_file_name:str=None) -> None:
-    global RES_FOLDER_PATH, CONFIG_FILE_NAME
+    global RES_FOLDER_PATH, DB_CONFIG_FILE_NAME
 
     print('Start create_db_schema...')
 
     if not res_folder_path:
         res_folder_path = RES_FOLDER_PATH
     if not config_file_name:
-        config_file_name = CONFIG_FILE_NAME
+        config_file_name = DB_CONFIG_FILE_NAME
 
     config_path = f'{res_folder_path}/{config_file_name}'
     config = db_helper.load_json(config_path)
@@ -56,7 +56,7 @@ def main(res_folder_path:str=None, config_file_name:str=None) -> None:
 
     sql_list = schema_to_sql(schema)
 
-    with db_helper.open_connection(config) as con:
+    with db_helper.open_connection(config, False) as con:
         create_tables(con, sql_list)
 
     print('create_db_schema Done')

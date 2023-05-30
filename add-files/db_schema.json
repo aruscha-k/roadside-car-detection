@@ -11,9 +11,23 @@
         "columns": [
             {"name": "id", "type": "int", "primary key": true, "not null": true},
             {"name": "street_id", "type": "text", "references": "streets"},
-            {"name": "street_type", "type": "text"},
-            {"name": "geometry", "type": "json"},
-            {"name": "length_m", "type": "float8"}
+            {"name": "segm_gid", "type": "int"},
+            {"name": "sstrgsname", "type": "text"},
+            {"name": "geom_type", "type": "text"},
+            {"name": "geom_coordinates", "type": "json"},
+            {"name": "laenge_m", "type": "float8"}
+        ]
+    },
+    {
+        "name": "trafficareas",
+        "columns": [
+            {"name": "id", "type": "int", "primary key": true, "not null": true},
+            {"name": "segm_gid", "type": "int"},
+            {"name": "stsa_text", "type": "text"},
+            {"name": "length_m", "type": "float8"},
+            {"name": "median_breite", "type": "float8"},
+            {"name": "geom_type", "type": "text"},
+            {"name": "geometry", "type": "json"}
         ]
     },
     {
