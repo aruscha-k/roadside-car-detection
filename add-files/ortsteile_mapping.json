@@ -1,0 +1,33 @@
+{
+    "transmission_order" : [
+        "ortsteile"
+    ],
+    "tables_primary_keys" : [
+        {"table": "ortsteile", "key":"ot_nr"}
+    ],
+    "path_to_data_set": ["features"],
+    "mapping" : [
+        {
+            "path_to_property": ["geometry", "type"],
+            "postgres": {"table": "ortsteile", "column": "geom_type"}
+        },
+        {
+            "path_to_property": ["geometry", "coordinates"],
+            "postgres": {"table": "ortsteile", "column": "geom_coordinates"},
+            "transformation" : "coordinates_to_json"
+        },
+        {
+            "path_to_property": ["properties", "ot_nr"],
+            "postgres": {"table": "ortsteile", "column": "ot_nr"}
+        },
+        {
+            "path_to_property": ["properties", "ot_name"],
+            "postgres": {"table": "ortsteile", "column": "ot_name"}    
+        },
+        {
+            "path_to_property": ["geometry"],
+            "postgres": {"table": "ortsteile", "column": "geometry"},    
+            "transformation" : "geom_to_json"
+        }
+        ]
+    }

@@ -26,6 +26,10 @@
             "postgres": {"table": "segments", "column": "segm_gid"}
         },
         {
+            "path_to_property": ["properties", "ot_name"],
+            "postgres": {"table": "segments", "column": "ot_name"}
+        },
+        {
             "path_to_property": ["geometry", "type"],
             "postgres": {"table": "segments", "column": "geom_type"}
         },
@@ -33,6 +37,11 @@
             "path_to_property": ["geometry", "coordinates"],
             "postgres": {"table": "segments", "column": "geom_coordinates"},
             "transformation" : "coordinates_to_json"
+        },
+        {
+            "path_to_property": ["geometry"],
+            "postgres": {"table": "segments", "column": "geometry"},
+            "transformation" : "geom_to_json"    
         },
         {
             "path_to_property": ["properties", "laenge_m"],

@@ -13,9 +13,12 @@
             {"name": "street_id", "type": "text", "references": "streets"},
             {"name": "segm_gid", "type": "int"},
             {"name": "sstrgsname", "type": "text"},
+            {"name": "laenge_m", "type": "float8"},
+            {"name": "ot_name", "type": "text"},
             {"name": "geom_type", "type": "text"},
             {"name": "geom_coordinates", "type": "json"},
-            {"name": "laenge_m", "type": "float8"}
+            {"name": "geometry", "type": "jsonb"}
+          
         ]
     },
     {
@@ -27,27 +30,82 @@
             {"name": "length_m", "type": "float8"},
             {"name": "median_breite", "type": "float8"},
             {"name": "geom_type", "type": "text"},
-            {"name": "geometry", "type": "json"}
+            {"name": "geom_coordinates", "type": "json"}
         ]
     },
     {
-        "name": "tags",
-        "columns": [
-            {"name": "id", "type": "SERIAL", "primary key": true, "not null": true},
-            {"name": "key", "type": "text"},
-            {"name": "value", "type": "text"},
-            {"name": "segment_id", "type": "int", "references": "segments"}
-        ]
-    },
-    {
-        "name": "cyclomedia",
+        "name": "tags_cyclomedia",
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
-            {"name": "id", "type": "text", "primary key": true, "not null": true},
+            {"name": "key", "type": "text"},
+            {"name": "value", "type": "text"} 
+        ],
+        "constraints": {
+            "primaryKey": ["segment_id", "key", "value"]
+        }
+    },
+    {
+        "name": "ortsteile",
+        "columns": [
+            {"name": "ot_nr", "type": "text", "primary key": true, "not null": true},
+            {"name": "ot_name", "type": "text"},
+            {"name": "geom_type", "type": "text"},
+            {"name": "geom_coordinates", "type": "json"},
+            {"name": "geometry", "type": "jsonb"}
+        ]
+    },
+    {
+        "name": "segments_segmentation",
+        "columns": [
+            {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "segmentation_number", "type": "int"},
+            {"name": "start_lat", "type": "float8"},
+            {"name": "start_lon", "type": "float8"},
+            {"name": "end_lat", "type": "float8"},
+            {"name": "end_lon", "type": "float8"}
+        ],
+        "constraints":{
+            "primaryKey": ["segment_id", "segmentation_number"],
+            "not null": ["segment_id", "segmentation_number"]
+        }
+    },
+    {
+        "name": "segments_segmentation_sides",
+        "columns": [
+            {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "segmentation_number", "type": "int"},
+            {"name": "left_coordinates", "type": "jsonb"},
+            {"name": "right_coordinates", "type": "jsonb"}
+        ],
+        "constraints":{
+            "primaryKey": ["segment_id", "segmentation_number"],
+            "not null": ["segment_id", "segmentation_number"]
+        }
+    },
+    {
+        "name": "segments_cyclomedia",
+        "columns": [
+            {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "record_id", "type": "text"},
             {"name": "segmentation_number", "type": "int"},
             {"name": "order_number", "type": "int"},
             {"name": "recording_lat", "type": "float8"},
-            {"name": "recording_lon", "type": "float8"}
-        ]
+            {"name": "recording_lon", "type": "float8"},
+            {"name": "recording_year", "type": "int" }
+        ],
+        "constraints": {
+            "primaryKey": ["segment_id", "record_id"]
+        }
+    },
+    {
+        "name": "segments_air",
+        "columns": [
+            {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "segmentation_number", "type": "int"},
+            {"name": "recording_year", "type": "int" }
+        ],
+        "constraints": {
+            "primaryKey": ["segment_id", "segmentation_number"]
+        }
     }
 ]

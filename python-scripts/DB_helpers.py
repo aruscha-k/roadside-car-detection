@@ -15,27 +15,26 @@ def load_json(path: str, mode: str=None):
     return data
 
 
-def open_connection(config: dict, toggle_input:bool):
+def open_connection(db_config_path: str, db_user_config_path:str):
     relevant_keys = {
         "host",
         "database",
         "port"
     }
-    if toggle_input:
-        args = {
-            "user": input('please enter db username: '), 
-            "password": input('please enter db password: '), 
-            **select_keys(config, relevant_keys)
-        }
-    else:
-        args = {
-            "user": "postgres", 
-            "password": "kaka", 
-            **select_keys(config, relevant_keys)
-        }
+    config = load_json(db_config_path)
+    user_config = load_json(db_user_config_path)
+    user = user_config['username']
+    pw = user_config['password']
+
+    args = {
+        "user": user, 
+        "password": pw, 
+        **select_keys(config, relevant_keys)
+    }
 
     connection = psycopg2.connect(**args)
     return connection
+
 
 def select_keys(d: dict, keys) -> dict:
     """
@@ -48,17 +47,17 @@ def select_keys(d: dict, keys) -> dict:
     return {k:v for k,v in d.items() if k in keys}
 
 
-def navigate_json_dict(json_dict, path:list):
+def navigate_json_dict(json_dict, json_path:list):
     """
     The navigate_json_dict function is designed to retrieve a nested value from a JSON dictionary using a path of keys.
     Parameters:
         json_dict (dict): the JSON dictionary to navigate
-        path (list): a list of keys representing the path to the desired value
+        json_path (list): a list of keys representing the path to the desired value
     Returns:
         result_item (any): the value located at the end of the path"""
 
     result_item = json_dict
-    for property in path:
+    for property in json_path:
         try:
             result_item = result_item[property]
         except KeyError:

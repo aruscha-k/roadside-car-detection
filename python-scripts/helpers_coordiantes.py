@@ -22,6 +22,7 @@ def sort_coords(converted_coords, start_pt):
         return list(reversed(converted_coords))
     else:
         print("!!!!! COORDS NOT ORDERED LIKE THAT")
+        return []
 
 
 # calculate distance in m between two coordinates
