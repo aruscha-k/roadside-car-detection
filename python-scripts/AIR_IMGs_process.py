@@ -38,19 +38,19 @@ def calculate_bounding_box(str_pts, width):
 
     if abs(math.degrees(x_angle)) <= 45:
 
-        upper_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, m_origin, b_parallel_above)
-        upper_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, m_origin, b_parallel_above)
-        lower_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, m_origin, b_parallel_below)
-        lower_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, m_origin, b_parallel_below)
+        start_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, m_origin, b_parallel_above) #upper left
+        end_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, m_origin, b_parallel_above) #upper right
+        end_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, m_origin, b_parallel_below) # lower right
+        start_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, m_origin, b_parallel_below) #lower left
     
     elif abs(math.degrees(x_angle)) >= 45:
 
-        upper_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, m_origin, b_parallel_above)
-        upper_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, m_origin, b_parallel_below)
-        lower_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, m_origin, b_parallel_below)
-        lower_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, m_origin, b_parallel_above)
+        end_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, m_origin, b_parallel_above) #upper left
+        end_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, m_origin, b_parallel_below) #upper right
+        start_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, m_origin, b_parallel_below) #lower right
+        start_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, m_origin, b_parallel_above) #lower left
 
-    bounding_box = [upper_left, upper_right, lower_right, lower_left]
+    bounding_box = [start_left, end_left, start_right, end_right]
     return bounding_box
 
 

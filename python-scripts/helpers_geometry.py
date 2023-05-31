@@ -17,7 +17,7 @@ def find_angle_to_y(str_pts):
 def find_angle_to_x(str_pts):
     start_pt, end_pt = str_pts[0], str_pts[1]
     m = calculate_slope([start_pt, end_pt])
-    #print(f"angle to x: {math.degrees(math.atan(m))}")
+    print(f"angle to x: {math.degrees(math.atan(m))}")
     return math.atan(m)
 
 

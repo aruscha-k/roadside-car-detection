@@ -55,6 +55,34 @@
         ]
     },
     {
+        "name": "segments_segmentation",
+        "columns": [
+            {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "segmentation_number", "type": "int"},
+            {"name": "start_lat", "type": "float8"},
+            {"name": "start_lon", "type": "float8"},
+            {"name": "end_lat", "type": "float8"},
+            {"name": "end_lon", "type": "float8"}
+        ],
+        "constraints":{
+            "primaryKey": ["segment_id", "segmentation_number"],
+            "not null": ["segment_id", "segmentation_number"]
+        }
+    },
+    {
+        "name": "segments_segmentation_sides",
+        "columns": [
+            {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "segmentation_number", "type": "int"},
+            {"name": "left_coordinates", "type": "jsonb"},
+            {"name": "right_coordinates", "type": "jsonb"}
+        ],
+        "constraints":{
+            "primaryKey": ["segment_id", "segmentation_number"],
+            "not null": ["segment_id", "segmentation_number"]
+        }
+    },
+    {
         "name": "segments_cyclomedia",
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
@@ -78,21 +106,6 @@
         ],
         "constraints": {
             "primaryKey": ["segment_id", "segmentation_number"]
-        }
-    },
-    {
-        "name": "segments_segmentation",
-        "columns": [
-            {"name": "segment_id", "type": "int", "references": "segments"},
-            {"name": "segmentation_number", "type": "int"},
-            {"name": "start_lat", "type": "float8"},
-            {"name": "start_lon", "type": "float8"},
-            {"name": "end_lat", "type": "float8"},
-            {"name": "end_lon", "type": "float8"}
-        ],
-        "constraints":{
-            "primaryKey": ["segment_id", "segmentation_number"],
-            "not null": ["segment_id", "segmentation_number"]
         }
     }
 ]
