@@ -1,13 +1,13 @@
-import DB_helpers as db_helper
+from DB_helpers import open_connection
 from helpers_geometry import calculate_start_end_pt
 from helpers_coordiantes import convert_coords, sort_coords
 from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, DB_USER
 
 
-def create_segm_gid_relation(db_config):
+def create_segm_gid_relation(db_config, db_user):
     print('Creating area_segment_relation table ....')
 
-    with db_helper.open_connection(db_config, DB_USER) as con:
+    with open_connection(db_config, db_user) as con:
 
         cursor = con.cursor()
         cursor.execute("""CREATE TABLE area_segment_relation AS SELECT id AS area_id, segm_gid FROM trafficareas;""")
@@ -40,10 +40,10 @@ def create_segm_gid_relation(db_config):
                                 WHERE segm_gid = %s""",(segment_id, segm_gid,))
 
 
-def create_segmentation(db_config):
+def create_segmentation(db_config, db_user):
     print('Creating segmentations ....')
 
-    with db_helper.open_connection(db_config, DB_USER) as con:
+    with open_connection(db_config, db_user) as con:
         cursor = con.cursor()
         cursor.execute("""SELECT id FROM segments""")
         segment_id_list = [item[0] for item in cursor.fetchall()]
@@ -90,9 +90,9 @@ def create_segmentation(db_config):
                     sorted_coords = [convert_coords("EPSG:4326", "EPSG:25833", pt[0], pt[1]) for pt in sorted_coords]
                     cursor.execute("""INSERT INTO segments_segmentation VALUES (%s, %s, %s, %s, %s, %s) """, (segment_id, segmentation_counter,  sorted_coords[0][0], sorted_coords[0][1], sorted_coords[1][0], sorted_coords[1][1], ))
 
-def add_ot_to_segments(db_config):
+def add_ot_to_segments(db_config, db_user):
     print("Add OT to segments...")
-    with db_helper.open_connection(db_config, DB_USER) as con:
+    with open_connection(db_config, db_user) as con:
         cursor = con.cursor()
 
         #convert geometry from JSON to postgis column type for tables segemtns and ortsteile
@@ -115,8 +115,7 @@ def add_ot_to_segments(db_config):
 
 if __name__ == "__main__":
     config_path = f'{RES_FOLDER_PATH}/{DB_CONFIG_FILE_NAME}'
-    db_config = db_helper.load_json(config_path)
 
-    add_ot_to_segments(db_config)
-    create_segm_gid_relation(db_config)
-    create_segmentation(db_config)
+    add_ot_to_segments(config_path, DB_USER)
+    create_segm_gid_relation(config_path, DB_USER)
+    create_segmentation(config_path, DB_USER)

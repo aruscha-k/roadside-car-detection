@@ -1,12 +1,24 @@
-import DB_helpers as db_helper
+from DB_helpers import open_connection
 from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, AIR_TEMP_CROPPED_FOLDER_PATH, AIR_CROPPED_ROTATED_FOLDER_PATH, DATASET_FOLDER_PATH, DB_USER
 from AIR_IMGs_process import calculate_bounding_box, get_rotation_angle_for_img, cut_out_shape, rotate_img_only
+from helpers_coordiantes import convert_coords
+
+import json
+
+def write_bbox_to_DB(bbox, cursor, segment_id, segmentation_number):
+    left_coords = [bbox[0], bbox[1]]
+    right_coords = [bbox[2], bbox[3]]
+    left_coords = [convert_coords("EPSG:25833", "EPSG:4326", coord[0], coord[1]) for coord in left_coords]
+    right_coords = [convert_coords("EPSG:25833", "EPSG:4326", coord[0], coord[1]) for coord in right_coords]
+
+    cursor.execute("""INSERT INTO segments_segmentation_sides VALUES (%s, %s, %s, %s)""", (segment_id, segmentation_number, json.dumps(left_coords), json.dumps(right_coords), ))
+                    
 
 
 # suburb_list = [(ot_name, ot_nr), ..]
-def create_air_segments(db_config, suburb_list):
+def create_air_segments(db_config_path, db_user, suburb_list):
 
-    with db_helper.open_connection(db_config, DB_USER) as con:
+    with open_connection(db_config_path, db_user) as con:
         recording_year = 2019
         cursor = con.cursor()
        
@@ -72,7 +84,13 @@ def create_air_segments(db_config, suburb_list):
                     temp_coords = [(start_lat, start_lon), (end_lat, end_lon)]
                     
                     img_filename = str(ot_name) + "_" + str(segment_id) + "_" + str(segmentation_number)
+
+                    #bbox = [start_left, end_left, start_right, end_right]
                     bbox = calculate_bounding_box(temp_coords, median_breite)
+                    # write bbox data to DB for visualisation
+                    write_bbox_to_DB(bbox, cursor, segment_id, segmentation_number)
+                    con.commit()
+
                     rotation_angle = get_rotation_angle_for_img(temp_coords)
                     cut_out_success = cut_out_shape(bbox, AIR_TEMP_CROPPED_FOLDER_PATH + img_filename + ".tif", in_tif)
 
@@ -92,6 +110,9 @@ def create_air_segments(db_config, suburb_list):
             
                         temp_coords = [(start_lat, start_lon), (end_lat, end_lon)]
                         bbox = calculate_bounding_box(temp_coords, median_breite)
+                        write_bbox_to_DB(bbox, cursor, segment_id, segmentation_number)
+                        con.commit()
+                    
                         rotation_angle = get_rotation_angle_for_img(temp_coords)
                         cut_out_success = cut_out_shape(bbox, AIR_TEMP_CROPPED_FOLDER_PATH + img_filename + ".tif", in_tif)
                         if cut_out_success:
@@ -102,5 +123,4 @@ def create_air_segments(db_config, suburb_list):
 
 if __name__ == "__main__":
     config_path = f'{RES_FOLDER_PATH}/{DB_CONFIG_FILE_NAME}'
-    db_config = db_helper.load_json(config_path)
-    create_air_segments(db_config=db_config, suburb_list=[('Lindenau',70)])
+    create_air_segments(db_config_path=config_path, db_user=DB_USER, suburb_list=[('Lindenau',70)])

@@ -1,14 +1,13 @@
 
-from DB_helpers import open_connection, load_json
-import DB_helpers as db_helper
-import STR_IMGs_config as CONF
+from DB_helpers import open_connection
 from PATH_CONFIGS import CYCLO_IMG_FOLDER_PATH, RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, DB_USER
 from ML_STR_IMGs_methods import run_detection
+
 import os
 import psycopg2
 
-def run(db_config, suburb_list):
-    with db_helper.open_connection(db_config, DB_USER) as con:
+def run(db_config, db_user, suburb_list):
+    with open_connection(db_config, db_user) as con:
         cursor = con.cursor()
 
         if suburb_list == []:
@@ -69,8 +68,8 @@ def run(db_config, suburb_list):
 
 if __name__ == "__main__":
 
-    db_config = load_json(RES_FOLDER_PATH +"/"+ DB_CONFIG_FILE_NAME)
-    run(db_config, [("Lindenau", 0)])
+    db_config_path = RES_FOLDER_PATH +"/"+ DB_CONFIG_FILE_NAME
+    run(db_config_path, DB_USER, [("Lindenau", 0)])
 
 
 #https://atlas.cyclomedia.com/PanoramaRendering/Render/WE4IK5SE/?apiKey=2_4lO_8ZuXEBuXY5m7oVWzE1KX41mvcd-PQZ2vElan85eLY9CPsdCLstCvYRWrQ5&srsName=epsg:55567837&direction=0&hfov=80

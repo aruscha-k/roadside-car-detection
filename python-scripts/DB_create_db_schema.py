@@ -56,7 +56,7 @@ def main(res_folder_path:str=None, config_file_name:str=None) -> None:
     tables_schema_path = f'{res_folder_path}/{config["schema"]}'
     tables = db_helper.load_json(tables_schema_path)
 
-    with db_helper.open_connection(config, DB_USER) as con:
+    with db_helper.open_connection(config_path, DB_USER) as con:
         create_tables(con, tables)
 
     print('create_db_schema Done')

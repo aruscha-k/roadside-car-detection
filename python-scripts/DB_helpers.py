@@ -15,26 +15,26 @@ def load_json(path: str, mode: str=None):
     return data
 
 
-def open_connection(config: dict, db_user_config:str):
+def open_connection(db_config_path: str, db_user_config_path:str):
     relevant_keys = {
         "host",
         "database",
         "port"
     }
+    config = load_json(db_config_path)
+    user_config = load_json(db_user_config_path)
+    user = user_config['username']
+    pw = user_config['password']
 
-    with open(db_user_config) as f:
-        user_config = json.load(f)
-        user = user_config['username']
-        pw = user_config['password']
-
-        args = {
-            "user": user, 
-            "password": pw, 
-            **select_keys(config, relevant_keys)
-        }
+    args = {
+        "user": user, 
+        "password": pw, 
+        **select_keys(config, relevant_keys)
+    }
 
     connection = psycopg2.connect(**args)
     return connection
+
 
 def select_keys(d: dict, keys) -> dict:
     """

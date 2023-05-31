@@ -1,5 +1,5 @@
 from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME
-import DB_helpers as db_helper
+from DB_helpers import open_connection
 from helpers_geometry import find_angle_to_y, find_angle_to_x, calculate_slope, get_y_intercept
 from helpers_coordiantes import calulate_distance_of_two_coords
 from STR_IMGs_api_calls import list_nearest_recordings, get_recording_id, render_by_ID
@@ -164,9 +164,9 @@ def load_into_db(rec_IDs, segment_id, segmentation_number, connection):
 
 
 # # suburb_list = [(ot_name, ot_nr), ..], in this case ot_nr is not relevant and can be 0 all the time
-def get_cyclomedia_data(db_config, suburb_list):
+def get_cyclomedia_data(db_config, db_user, suburb_list):
     print("getting cyclomedia data...")
-    with db_helper.open_connection(db_config, PATHS.DB_USER) as con:
+    with open_connection(db_config, db_user) as con:
 
         cursor = con.cursor()
         if suburb_list == []:
@@ -258,5 +258,4 @@ def get_cyclomedia_data(db_config, suburb_list):
 
 if __name__ == "__main__":
     config_path = f'{RES_FOLDER_PATH}/{DB_CONFIG_FILE_NAME}'
-    db_config = db_helper.load_json(config_path)
-    get_cyclomedia_data(db_config, [('Lindenau',0)])
+    get_cyclomedia_data(config_path, PATHS.DB_USER, [('Lindenau',0)])
