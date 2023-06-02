@@ -4,7 +4,7 @@ DB_CONFIG_FILE_NAME = "db_config.json"
 LOAD_DATA_CONFIG_NAME = "load_data_config.json"
 
 CYCLO_DETECTION_MODEL = "streetmodel_80img_00025lr_1500bs.pth"
-AIR_DETECTION_MODEL = ""
+AIR_DETECTION_MODEL = "airmodel_final_lr_0_002_BS_8_BSPI_512_ITER_1000_best_so_far.pth"
 
 RES_FOLDER_PATH = "./add-files"
 DATASET_FOLDER_PATH = "datasets/complete"
