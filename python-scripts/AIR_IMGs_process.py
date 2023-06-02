@@ -18,7 +18,7 @@ test_str_start = (51.3158290612, 12.3714331051)
 
 # given two points andthe wanted width calculate two parallel lines and perpendiculars
 # RETURNS:
-# bouding_box (list) with points in order [upper_left, upper_right, lower_right, lower_left]
+# bouding_box (list) with points in order [upper_left, upper_right, lower_right, lower_left] / [start_left, end_left, end_right, start_right]
 def calculate_bounding_box(str_pts, width):
    
     # slope and y intercept of original line, angle to x-axis of original line
@@ -50,7 +50,7 @@ def calculate_bounding_box(str_pts, width):
         start_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, m_origin, b_parallel_below) #lower right
         start_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, m_origin, b_parallel_above) #lower left
 
-    bounding_box = [start_left, end_left, start_right, end_right]
+    bounding_box = [start_left, end_left, end_right, start_right]
     return bounding_box
 
 
@@ -75,6 +75,7 @@ def get_rotation_angle_for_img(str_pts):
 
 
 # method to cut out the calculated shape from the GEOTIF and saves the cutout img as file
+# bbox has to be a closed shape!
 # return True if successfull, else False
 def cut_out_shape(bbox, out_tif, in_tif):
 
