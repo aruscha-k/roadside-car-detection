@@ -6,7 +6,7 @@ from ML_IMGs_methods import run_detection
 import os
 import psycopg2
 
-def run(db_config, db_user, suburb_list, img_type):
+def run(db_config, db_user, suburb_list, img_type, result_table_name):
     with open_connection(db_config, db_user) as con:
         cursor = con.cursor()
 
@@ -70,9 +70,9 @@ def run(db_config, db_user, suburb_list, img_type):
                         for (parking, percentage) in parking_dict[key]:
                             try:
                                 if img_type == "cyclo":
-                                    cursor.execute("""INSERT INTO parking_cyclomedia VALUES (%s, %s, %s, %s)""", (segment_id, key, parking, percentage,))
+                                    cursor.execute("""INSERT INTO {} VALUES (%s, %s, %s, %s)""".format(result_table_name), (segment_id, key, parking, percentage,))
                                 elif img_type == "air":
-                                    cursor.execute("""INSERT INTO parking_air VALUES (%s, %s, %s, %s)""", (segment_id, key, parking, percentage,))
+                                    cursor.execute("""INSERT INTO {} VALUES (%s, %s, %s, %s)""".format(result_table_name), (segment_id, key, parking, percentage,))
 
                             except psycopg2.errors.UniqueViolation as e:
                                 continue
@@ -83,8 +83,8 @@ def run(db_config, db_user, suburb_list, img_type):
 if __name__ == "__main__":
 
     db_config_path = os.path.join(RES_FOLDER_PATH, DB_CONFIG_FILE_NAME)
-    run(db_config_path, DB_USER, [("Lindenau", 70)], img_type="cyclo")
-    run(db_config_path, DB_USER, [("Lindenau", 70)], img_type="air")
+    run(db_config_path, DB_USER, [("Lindenau", 70)], img_type="cyclo", result_table_name="parking_cyclomedia_train2")
+    #run(db_config_path, DB_USER, [("Lindenau", 70)], img_type="air", result_table_name="parking_air")
 
 
 #https://atlas.cyclomedia.com/PanoramaRendering/Render/WE4IK5SE/?apiKey=2_4lO_8ZuXEBuXY5m7oVWzE1KX41mvcd-PQZ2vElan85eLY9CPsdCLstCvYRWrQ5&srsName=epsg:55567837&direction=0&hfov=80

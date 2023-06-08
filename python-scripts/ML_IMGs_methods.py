@@ -24,20 +24,39 @@ def load_air_predictor():
     predictor = DefaultPredictor(air_cfg)
     return predictor
 
+# OLD NET
+# def load_cyclo_predictor():
+
+#     cfg = get_cfg()
+#     cfg.merge_from_file(model_zoo.get_config_file("COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml"))
+#     cfg.DATASETS.TRAIN = ("test_set",)
+#     cfg.DATASETS.TEST = ()
+#     cfg.DATALOADER.NUM_WORKERS = 2
+#     cfg.SOLVER.IMS_PER_BATCH = 2
+#     cfg.SOLVER.BASE_LR = 0.0025  # pick a good LR
+#     cfg.SOLVER.MAX_ITER = 1500    # 300 iterations seems good enough for this toy dataset; you will need to train longer for a practical dataset
+#     cfg.SOLVER.STEPS = []        # do not decay learning rate
+#     cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 1500   # faster, and good enough for this toy dataset (default: 512)
+#     cfg.MODEL.ROI_HEADS.NUM_CLASSES = 3 
+#     cfg.MODEL.DEVICE = 'cpu'
+#     cfg.MODEL.WEIGHTS = os.path.join(RES_FOLDER_PATH, CYCLO_DETECTION_MODEL)  # path to the model we just trained
+#     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.90   # set a custom testing threshold
+#     predictor = DefaultPredictor(cfg)
+#     return predictor
 
 def load_cyclo_predictor():
-
     cfg = get_cfg()
     cfg.merge_from_file(model_zoo.get_config_file("COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml"))
     cfg.DATASETS.TRAIN = ("test_set",)
     cfg.DATASETS.TEST = ()
     cfg.DATALOADER.NUM_WORKERS = 2
+    cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml")  # Let training initialize from model zoo
     cfg.SOLVER.IMS_PER_BATCH = 2
     cfg.SOLVER.BASE_LR = 0.0025  # pick a good LR
     cfg.SOLVER.MAX_ITER = 1500    # 300 iterations seems good enough for this toy dataset; you will need to train longer for a practical dataset
     cfg.SOLVER.STEPS = []        # do not decay learning rate
     cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 1500   # faster, and good enough for this toy dataset (default: 512)
-    cfg.MODEL.ROI_HEADS.NUM_CLASSES = 3 
+    cfg.MODEL.ROI_HEADS.NUM_CLASSES = 2 
     cfg.MODEL.DEVICE = 'cpu'
     cfg.MODEL.WEIGHTS = os.path.join(RES_FOLDER_PATH, CYCLO_DETECTION_MODEL)  # path to the model we just trained
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.90   # set a custom testing threshold
@@ -111,7 +130,7 @@ def assign_left_right(im, boxes, classes):
 
 def calculate_parking(predictions, img_type):
     if img_type == "cyclo":
-        class_dict = {0: 'diagonal/senkrecht', 1: 'parallel', 2: 'baumscheibe', -1: 'kein Auto'}
+        class_dict = {0: 'parallel', 1: 'diagonal/senkrecht', -1: 'kein Auto'}
     elif img_type == "air":
         class_dict = {0: 'diagonal/senkrecht', 1: 'parallel', 2: 'baumscheibe', 3:'sperrflaeche', 4:'zebrastreifen', -1: 'kein Auto'}
     parking_dict = {'left': [], 'right': []}
@@ -190,3 +209,29 @@ def run_detection(img_list, img_type):
     print(parking_dict)
             
     return parking_dict
+
+
+# -------- for debug only ----------------
+# visualize prediction for 1 image
+def visualize_prediction(filename, img_type):
+    if img_type == "air":
+        predictor = load_air_predictor()
+        metadata = {"thing_classes": ['auto-diagonal', 'auto-parallel', 'baumscheibe', 'sperrflaeche', 'zebrastreifen']}
+    elif img_type == "cyclo":
+        predictor = load_cyclo_predictor()
+        metadata = {"thing_classes": ['parallel', 'diagonal/senkrecht']}
+    
+    im = cv2.imread(filename)
+    outputs = predictor(im)
+    instances = outputs["instances"].to("cpu")
+    
+    v = Visualizer(im[:, :, ::-1], metadata=metadata, scale=1.0)
+    out = v.draw_instance_predictions(instances)
+    cv2.imshow('Prediction', out.get_image()[:, :, ::-1])
+    cv2.waitKey(0)
+
+
+if __name__ == "__main__":
+    from detectron2.utils.visualizer import Visualizer
+
+    visualize_prediction()

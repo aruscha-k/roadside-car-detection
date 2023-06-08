@@ -58,6 +58,18 @@
         }
     },
     {
+        "name": "parking",
+        "columns": [
+            {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "parking", "type": "text"},
+            {"name": "value", "type": "text"},
+            {"name": "percentage", "type": "float8"}
+        ],
+        "constraints": {
+            "primaryKey": ["segment_id", "parking", "value"]
+        }
+    },
+    {
         "name": "ortsteile",
         "columns": [
             {"name": "ot_nr", "type": "text", "primary key": true, "not null": true},
