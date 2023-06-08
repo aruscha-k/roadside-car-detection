@@ -40,6 +40,8 @@ def create_segm_gid_relation(db_config, db_user):
                                 WHERE segm_gid = %s""",(segment_id, segm_gid,))
 
 
+# for every segment in the segments table check, if the segment is sectioned into more than one piece (Len(coords) > 2) if yes => segment has a bend
+# for every segment add information if it is segmented and if yes the specific start end coordinates of the segmented segment to a table segments_segmentation
 def create_segmentation(db_config, db_user):
     print('Creating segmentations ....')
 
@@ -73,7 +75,8 @@ def create_segmentation(db_config, db_user):
                         sorted_coords = [convert_coords("EPSG:4326", "EPSG:25833", pt[0], pt[1]) for pt in sorted_coords]
                         segmentation_counter = 1
                     else:
-                        cursor.execute("""INSERT INTO segments_segmentation VALUES (%s, %s, %s, %s, %s, %s) """, (segment_id, -1,  -1, -1, -1, -1, ))
+                        cursor.execute("""INSERT INTO segments_segmentation VALUES (%s, %s, %s, %s, %s, %s) """, (segment_id, -5,  -5, -5, -5, -5, ))
+                        break
 
                     for i in range(0,len(sorted_coords)):
                         try:
@@ -90,6 +93,9 @@ def create_segmentation(db_config, db_user):
                     sorted_coords = [convert_coords("EPSG:4326", "EPSG:25833", pt[0], pt[1]) for pt in sorted_coords]
                     cursor.execute("""INSERT INTO segments_segmentation VALUES (%s, %s, %s, %s, %s, %s) """, (segment_id, segmentation_counter,  sorted_coords[0][0], sorted_coords[0][1], sorted_coords[1][0], sorted_coords[1][1], ))
 
+
+# add the geometries as PostGIS geometries
+# in the loaded segments table intersect each segment with the ortsteile geometry and if there is an intersection, add the accoding ot_name to segments table
 def add_ot_to_segments(db_config, db_user):
     print("Add OT to segments...")
     with open_connection(db_config, db_user) as con:

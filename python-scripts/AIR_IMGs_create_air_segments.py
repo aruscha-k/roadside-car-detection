@@ -4,15 +4,18 @@ from AIR_IMGs_process import calculate_bounding_box, get_rotation_angle_for_img,
 from helpers_coordiantes import convert_coords
 
 import json
+from psycopg2 import errors
 
+# bbox = [start_left, end_left, end_right, start_right]
 def write_bbox_to_DB(bbox, cursor, segment_id, segmentation_number):
     left_coords = [bbox[0], bbox[1]]
-    right_coords = [bbox[2], bbox[3]]
+    right_coords = [bbox[3], bbox[2]]
     left_coords = [convert_coords("EPSG:25833", "EPSG:4326", coord[0], coord[1]) for coord in left_coords]
     right_coords = [convert_coords("EPSG:25833", "EPSG:4326", coord[0], coord[1]) for coord in right_coords]
 
-    cursor.execute("""INSERT INTO segments_segmentation_sides VALUES (%s, %s, %s, %s)""", (segment_id, segmentation_number, json.dumps(left_coords), json.dumps(right_coords), ))
-                    
+    cursor.execute("""
+                    INSERT INTO segments_segmentation_sides 
+                    VALUES (%s, %s, %s, %s)""", (segment_id, segmentation_number, json.dumps(left_coords), json.dumps(right_coords), ))
 
 
 # suburb_list = [(ot_name, ot_nr), ..]
@@ -85,7 +88,7 @@ def create_air_segments(db_config_path, db_user, suburb_list):
                     
                     img_filename = str(ot_name) + "_" + str(segment_id) + "_" + str(segmentation_number)
 
-                    #bbox = [start_left, end_left, start_right, end_right]
+                    #bbox = [start_left, end_left, end_right, start_right]
                     bbox = calculate_bounding_box(temp_coords, median_breite)
                     # write bbox data to DB for visualisation
                     write_bbox_to_DB(bbox, cursor, segment_id, segmentation_number)

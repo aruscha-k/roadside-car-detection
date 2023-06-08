@@ -34,14 +34,39 @@
         ]
     },
     {
-        "name": "tags_cyclomedia",
+        "name": "parking_cyclomedia",
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
-            {"name": "key", "type": "text"},
-            {"name": "value", "type": "text"} 
+            {"name": "parking", "type": "text"},
+            {"name": "value", "type": "text"},
+            {"name": "percentage", "type": "float8"}
         ],
         "constraints": {
-            "primaryKey": ["segment_id", "key", "value"]
+            "primaryKey": ["segment_id", "parking", "value"]
+        }
+    },
+    {
+        "name": "parking_air",
+        "columns": [
+            {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "parking", "type": "text"},
+            {"name": "value", "type": "text"},
+            {"name": "percentage", "type": "float8"}
+        ],
+        "constraints": {
+            "primaryKey": ["segment_id", "parking", "value"]
+        }
+    },
+    {
+        "name": "parking",
+        "columns": [
+            {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "parking", "type": "text"},
+            {"name": "value", "type": "text"},
+            {"name": "percentage", "type": "float8"}
+        ],
+        "constraints": {
+            "primaryKey": ["segment_id", "parking", "value"]
         }
     },
     {

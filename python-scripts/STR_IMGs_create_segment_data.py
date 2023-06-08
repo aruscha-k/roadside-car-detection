@@ -175,6 +175,7 @@ def get_cyclomedia_data(db_config, db_user, suburb_list):
             suburb_list = cursor.fetchall()
         
         for ot_name, ot_nr in suburb_list:
+            print("getting cyclomedia data for ", ot_name)
 
             cursor.execute("""SELECT id FROM segments WHERE ot_name = %s""", (ot_name, ))
             segment_id_list = [item[0] for item in cursor.fetchall()]
@@ -258,4 +259,4 @@ def get_cyclomedia_data(db_config, db_user, suburb_list):
 
 if __name__ == "__main__":
     config_path = f'{RES_FOLDER_PATH}/{DB_CONFIG_FILE_NAME}'
-    get_cyclomedia_data(config_path, PATHS.DB_USER, [('Lindenau',0)])
+    get_cyclomedia_data(config_path, PATHS.DB_USER, [])
