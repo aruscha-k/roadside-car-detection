@@ -111,7 +111,7 @@
         "name": "segments_cyclomedia",
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
-            {"name": "record_id", "type": "text"},
+            {"name": "recording_id", "type": "text"},
             {"name": "segmentation_number", "type": "int"},
             {"name": "order_number", "type": "int"},
             {"name": "recording_lat", "type": "float8"},
@@ -119,7 +119,7 @@
             {"name": "recording_year", "type": "int" }
         ],
         "constraints": {
-            "primaryKey": ["segment_id", "record_id"]
+            "primaryKey": ["segment_id", "recording_id", "segmentation_number", "order_number"]
         }
     },
     {

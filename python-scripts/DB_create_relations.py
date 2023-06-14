@@ -1,3 +1,4 @@
+import ERROR_CODES as ec
 from DB_helpers import open_connection
 from helpers_geometry import calculate_start_end_pt
 from helpers_coordiantes import convert_coords, sort_coords
@@ -55,6 +56,7 @@ def create_segmentation(db_config, db_user):
             geom_type = cursor.fetchone()[0]
 
             # geom_type can be LineString or MultiLineString
+            #TODO: Multilinestring
             if geom_type == "LineString":
                 cursor.execute("""SELECT geom_coordinates FROM segments WHERE id = %s""", (segment_id, ))
                 coords = cursor.fetchone()[0]
@@ -70,17 +72,19 @@ def create_segmentation(db_config, db_user):
                     str_start, str_end = calculate_start_end_pt(converted_coords)
                     sorted_coords = sort_coords(converted_coords, str_start)
                     
-                    # if sorting method didnt work TODO
+                    # if sorting method didnt work TODO: find way to sort coords
                     if sorted_coords != []:
                         sorted_coords = [convert_coords("EPSG:4326", "EPSG:25833", pt[0], pt[1]) for pt in sorted_coords]
                         segmentation_counter = 1
                     else:
-                        cursor.execute("""INSERT INTO segments_segmentation VALUES (%s, %s, %s, %s, %s, %s) """, (segment_id, -5,  -5, -5, -5, -5, ))
-                        break
+                        cursor.execute("""INSERT INTO segments_segmentation VALUES (%s, %s, %s, %s, %s, %s) """, (segment_id, ec.WRONG_COORD_SORTING,  ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING, ))
+                        con.commit()
+                        continue
 
                     for i in range(0,len(sorted_coords)):
                         try:
                             cursor.execute("""INSERT INTO segments_segmentation VALUES (%s, %s, %s, %s, %s, %s) """, (segment_id, segmentation_counter,  sorted_coords[i][0], sorted_coords[i][1], sorted_coords[i+1][0], sorted_coords[i+1][1], ))
+                            con.commit()
                             segmentation_counter += 1
 
                         except IndexError:
@@ -92,6 +96,7 @@ def create_segmentation(db_config, db_user):
                     sorted_coords = sort_coords(converted_coords, str_start)
                     sorted_coords = [convert_coords("EPSG:4326", "EPSG:25833", pt[0], pt[1]) for pt in sorted_coords]
                     cursor.execute("""INSERT INTO segments_segmentation VALUES (%s, %s, %s, %s, %s, %s) """, (segment_id, segmentation_counter,  sorted_coords[0][0], sorted_coords[0][1], sorted_coords[1][0], sorted_coords[1][1], ))
+                    con.commit()
 
 
 # add the geometries as PostGIS geometries

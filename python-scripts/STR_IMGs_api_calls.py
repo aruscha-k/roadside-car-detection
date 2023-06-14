@@ -74,10 +74,14 @@ def render_by_ID(srs_name, recording_id, params, print_url):
 # recording_lon: longitude of camera position
 def extract_recording_location_from_meta(response):
     header_meta = response.headers
-    # print(header_meta)
-    recording_lat = float(header_meta['RecordingLocation-X'])
-    recording_lon = float(header_meta['RecordingLocation-Y'])
-    return recording_lat, recording_lon
+    if response.status_code == 200:
+   
+        recording_lat = float(header_meta['RecordingLocation-X'])
+        recording_lon = float(header_meta['RecordingLocation-Y'])
+
+        return recording_lat, recording_lon
+    else:
+        return 0,0
 
 
 # return the i-th element of all nearest recordings
