@@ -11,7 +11,7 @@ import PATH_CONFIGS as PATHS
 import operator
 import math
 import psycopg2
-import xml.etree.ElementTree as ET
+
 
 #helper: check if all entries in recording ID are just errors
 def check_for_only_error_values(rec_IDs):
@@ -222,8 +222,8 @@ def get_cyclomedia_data(db_config, db_user, suburb_list):
                 elif len(segmentation_result_rows) == 1:
                     segmentation_no = segmentation_result_rows[0][1]
                     if segmentation_no == ec.WRONG_COORD_SORTING:
-                        rec_IDs = {'recording_id': ec.WRONG_COORD_SORTING, 'street_point': (0,0), 'recording_point': (0,0), 'recording_year': 0}
-                        load_into_db(rec_IDs=rec_IDs, segment_id=segment_id, segmentation_number=segmentation_number, connection=con)
+                        rec_IDs = [{'recording_id': ec.WRONG_COORD_SORTING, 'street_point': (0,0), 'recording_point': (0,0), 'recording_year': 0}]
+                        load_into_db(rec_IDs=rec_IDs, segment_id=segment_id, segmentation_number=segmentation_no, connection=con)
                         print("[!] information invalid - skip")
                         continue
 
@@ -287,4 +287,4 @@ def get_cyclomedia_data(db_config, db_user, suburb_list):
 if __name__ == "__main__":
     config_path = f'{RES_FOLDER_PATH}/{DB_CONFIG_FILE_NAME}'
                                                     #suburb list = tuple
-    get_cyclomedia_data(config_path, PATHS.DB_USER, suburb_list=[('Volkmarsdorf', 0)])
+    get_cyclomedia_data(config_path, PATHS.DB_USER, suburb_list=[])
