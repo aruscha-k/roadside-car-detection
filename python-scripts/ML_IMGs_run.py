@@ -1,13 +1,27 @@
 
 from DB_helpers import open_connection
-from PATH_CONFIGS import CYCLO_IMG_FOLDER_PATH, AIR_CROPPED_ROTATED_FOLDER_PATH, RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, DB_USER
+from PATH_CONFIGS import CYCLO_IMG_FOLDER_PATH, AIR_CROPPED_ROTATED_FOLDER_PATH, RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, DB_USER, LOG_FILES
 from ML_IMGs_methods import run_detection
-
+import ERROR_CODES as ec
+from datetime import datetime
 import os
 import psycopg2
 
+def log(img_type, logstart, logtime, message: str):
+    log_file_name = str(logstart) + "_" + str(img_type) + ".txt"
+    log_file = os.path.join(LOG_FILES, log_file)
+    if os.path.exists(log_file):
+        with open(log_file, 'a') as lfile:
+            lfile.write(logtime, message)
+    else:
+        with open(log_file, 'w') as lfile:
+            lfile.write(logtime, message)
+
+
 def run(db_config, db_user, suburb_list, img_type, result_table_name):
+    log_start = datetime.now()
     with open_connection(db_config, db_user) as con:
+        
         cursor = con.cursor()
 
         if suburb_list == []:
@@ -33,6 +47,7 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
                 result_rows = cursor.fetchall()
                 if result_rows == []:
                     print("no result for ", segment_id)
+                    log(img_type=img_type, logstart=log_start, logtime=datetime.now(), message=f"{segment_id}: No Result in segmentation")
                     continue
 
                 else:
@@ -43,6 +58,8 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
                             segmentation_number = result_rows[idx][1]
                             recording_id = result_rows[idx][0]
                             order_number = result_rows[idx][2]
+                            if recording_id in [ec.CYCLO_BAD_RESPONSE_CODE, ec.CYCLO_MAX_DIST, ec.CYCLO_NO_REC_ID_SINGLE, ec.CYCLO_NO_REC_ID_TOTAL, ec.WRONG_COORD_SORTING]:
+                                log(img_type=img_type, logstart=log_start, logtime=datetime.now(), message=f"{segment_id}: Error code {recording_id}")
 
                             if segmentation_number < 10:
                                 segmentation_number = "0" + str(segmentation_number)

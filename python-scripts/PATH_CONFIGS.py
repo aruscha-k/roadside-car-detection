@@ -8,6 +8,10 @@ AIR_DETECTION_MODEL = "airmodel_final_lr_0_002_BS_8_BSPI_512_ITER_1000_best_so_f
 
 RES_FOLDER_PATH = "./add-files"
 
+LOG_FILES = "./logfiles/"
+if not os.path.exists(LOG_FILES):
+    os.mkdir(LOG_FILES)
+
 DATASET_FOLDER_PATH = "datasets/complete"
 
 DB_USER_ARUSCHA = os.path.join(RES_FOLDER_PATH, 'db_aruscha.json')
