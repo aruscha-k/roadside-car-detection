@@ -6,4 +6,5 @@ CYCLO_NO_REC_ID_SINGLE = str(-3)
 CYCLO_NO_REC_ID_TOTAL = str(-4)
 CYCLO_BAD_RESPONSE_CODE = str(-5)
 
+NO_WIDTH = str(-6)
 
