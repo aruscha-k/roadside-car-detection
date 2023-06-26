@@ -1,8 +1,8 @@
 import ERROR_CODES as ec
 from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME
 from DB_helpers import open_connection
-from helpers_geometry import find_angle_to_y, find_angle_to_x, calculate_slope, get_y_intercept
-from helpers_coordiantes import calulate_distance_of_two_coords
+from helpers_geometry import find_angle_to_y, find_angle_to_x, calculate_slope, get_y_intercept, segment_iteration_condition
+from helpers_coordiantes import calulate_distance_of_two_coords, shift_pt_along_street
 from STR_IMGs_api_calls import list_nearest_recordings, get_recording_id, render_by_ID
 
 import STR_IMGs_config as CONF
@@ -20,14 +20,6 @@ def check_for_only_error_values(rec_IDs):
         return True
 
 
-# find length of adjacent to move pt along x+length_adjacent and with this new x value calculate y by using line equation
-def shift_pt_along_street(origin_pt, x_angle, shift_length, slope, y_intercept):
-    length_adjacent = (math.cos(x_angle) * shift_length)
-    shifted_x = origin_pt[0] + length_adjacent
-    shifted_y = (slope * shifted_x) + y_intercept
-    return (shifted_x, shifted_y)
-
-
 # iterate a segment or a segmented segment from start to end coordinate and get all cyclomedia recording IDs in between
 # compare recoding times of two adjacent points, if they have not been recorded right after another the process is started again !once!
 # if the second run also couldnt find adjacent recordings, error code is returned
@@ -39,12 +31,6 @@ def get_nearest_recordings_for_street_pts(str_start: tuple, str_end:tuple, shift
     else:
         first_run = False
 
-    # set the operator according to the slope of the street (if "going down" operator is >, if "going up" operator is <)
-    if slope_origin > 0:
-        op = operator.lt
-    if slope_origin < 0:
-        op = operator.gt
-
     x_angle = find_angle_to_x([str_start, str_end])
     b = get_y_intercept(str_start, slope_origin)
 
@@ -53,7 +39,7 @@ def get_nearest_recordings_for_street_pts(str_start: tuple, str_end:tuple, shift
     if first_nearest_rec_ID == "" and first_run:
         rec_IDs.append({'recording_id': ec.CYCLO_NO_REC_ID_SINGLE, 'street_point': (str_start[0], str_start[1]), 'recording_point': (), 'recording_year': 0})
         x_shifted, y_shifted = shift_pt_along_street((str_start[0], str_start[1]), x_angle, shift_length, slope_origin, b)
-        if op(y_shifted, str_end[1]):
+        if segment_iteration_condition(slope_origin, x_angle, str_start, str_end, x_shifted, y_shifted):
             rec_IDs = get_nearest_recordings_for_street_pts((x_shifted,y_shifted), str_end, shift_length, slope_origin, rec_IDs)
         return rec_IDs
     elif first_nearest_rec_ID == "" and not first_run:
@@ -65,7 +51,7 @@ def get_nearest_recordings_for_street_pts(str_start: tuple, str_end:tuple, shift
     #print(f"start point: {str_start[0], str_start[1]}, recording id:  {first_nearest_rec_ID} - time: {start_rec_time}")
     #print("next point:", x_shifted, y_shifted)
 
-    while op(y_shifted, str_end[1]):
+    while segment_iteration_condition(slope_origin, x_angle, str_start, str_end, x_shifted, y_shifted):
         recording_index = 0
         nearest_recordings = list_nearest_recordings(CONF.cyclo_srs, x_shifted, y_shifted, {}, False)
         nearest_rec_ID, rec_time = get_recording_id(nearest_recordings, recording_index)
