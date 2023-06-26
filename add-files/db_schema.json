@@ -95,10 +95,11 @@
         }
     },
     {
-        "name": "segments_segmentation_sides",
+        "name": "segments_segmentation_iteration",
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
             {"name": "segmentation_number", "type": "int"},
+            {"name": "iteration_number", "type": "int"},
             {"name": "left_coordinates", "type": "jsonb"},
             {"name": "right_coordinates", "type": "jsonb"}
         ],
