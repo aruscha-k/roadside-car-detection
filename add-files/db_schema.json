@@ -37,12 +37,13 @@
         "name": "parking_cyclomedia",
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "iteration_number", "type": "int"},
             {"name": "parking", "type": "text"},
             {"name": "value", "type": "text"},
             {"name": "percentage", "type": "float8"}
         ],
         "constraints": {
-            "primaryKey": ["segment_id", "parking", "value"]
+            "primaryKey": ["segment_id", "iteration_number", "parking"]
         }
     },
     {
@@ -61,12 +62,13 @@
         "name": "parking",
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "iteration_number", "type": "int"},
             {"name": "parking", "type": "text"},
             {"name": "value", "type": "text"},
             {"name": "percentage", "type": "float8"}
         ],
         "constraints": {
-            "primaryKey": ["segment_id", "parking", "value"]
+            "primaryKey": ["segment_id", "iteration_number", "parking"]
         }
     },
     {
@@ -114,7 +116,6 @@
             {"name": "segment_id", "type": "int", "references": "segments"},
             {"name": "recording_id", "type": "text"},
             {"name": "segmentation_number", "type": "int"},
-            {"name": "order_number", "type": "int"},
             {"name": "recording_lat", "type": "float8"},
             {"name": "recording_lon", "type": "float8"},
             {"name": "recording_year", "type": "int" }
