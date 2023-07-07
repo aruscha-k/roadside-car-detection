@@ -1,7 +1,7 @@
 from pyproj import Transformer
 from geopy import distance
 import math
-import requests
+from shapely.geometry import Point, Polygon
 from helpers_geometry import calculate_quadrant_from_center
 
 # Convert one point between different EPSG
@@ -94,3 +94,10 @@ def shift_pt_along_street(origin_pt, x_angle, shift_length, slope, y_intercept):
 
     shifted_y = (slope * shifted_x) + y_intercept
     return (shifted_x, shifted_y)
+
+
+def is_point_within_polygon(point_coordinates, polygon_coordinates):
+    point = Point(point_coordinates)
+    polygon = Polygon(polygon_coordinates)
+    #print(f"point lies within: {polygon.contains(point)} ")
+    return polygon.contains(point)
