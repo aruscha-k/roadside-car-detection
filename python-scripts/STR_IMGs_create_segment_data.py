@@ -136,10 +136,8 @@ def get_image_IDs_from_cyclomedia(segment_id:int, segmentation_number:int, rec_I
                 continue    
         
             else:
-                if idx < 10:
-                    idx = "0" + str(idx)
 
-                img_file_name = str(segment_id)+ "_" + str(segmentation_number) + "_" + str(idx) +  "_" + str(item['recording_id']) + ".jpg"
+                img_file_name = str(segment_id) + "_" + str(segmentation_number) + "_" + str(item['recording_id']) + ".jpg"
                 with open(PATHS.CYCLO_IMG_FOLDER_PATH + img_file_name, 'wb') as file:
                     file.write(response.content)
             
@@ -160,18 +158,18 @@ def load_into_db(rec_IDs, segment_id, segmentation_number, connection):
             cursor.execute("""INSERT INTO segments_cyclomedia VALUES (%s, %s, %s, %s, %s, %s) """, (segment_id, ec.CYCLO_NO_REC_ID_TOTAL, segmentation_number, 0, 0, 0,))
             connection.commit()
         except psycopg2.errors.UniqueViolation:
-            print(f"Value already in table. segment {segment_id}, segmentation number {segmentation_number}, order: {idx} ")
+            print(f"Value already in table. segment {segment_id}, segmentation number {segmentation_number}")
             connection.rollback()
             return
             
     else:
-        for idx, dict_item in enumerate(rec_IDs):
+        for dict_item in rec_IDs:
             try:
                 record_lat, record_lon = dict_item['recording_point'][0], dict_item['recording_point'][1]
-                cursor.execute("""INSERT INTO segments_cyclomedia VALUES (%s, %s, %s, %s, %s, %s, %s) """, (segment_id, dict_item['recording_id'], segmentation_number, idx, record_lat, record_lon,dict_item['recording_year'], ))
+                cursor.execute("""INSERT INTO segments_cyclomedia VALUES (%s, %s, %s, %s, %s, %s) """, (segment_id, dict_item['recording_id'], segmentation_number, record_lat, record_lon,dict_item['recording_year'], ))
                 connection.commit()
             except psycopg2.errors.UniqueViolation as e:
-                print(f"Value already in table. segment {segment_id}, segmentation number {segmentation_number}, order: {idx} ")
+                print(f"Value already in table. segment {segment_id}, segmentation number {segmentation_number} ")
                 connection.rollback()
                 continue
 
@@ -272,5 +270,5 @@ def get_cyclomedia_data(db_config, db_user, suburb_list):
 
 if __name__ == "__main__":
     config_path = f'{RES_FOLDER_PATH}/{DB_CONFIG_FILE_NAME}'
-                                                    #suburb list = tuple
-    get_cyclomedia_data(config_path, PATHS.DB_USER, suburb_list=[])
+                                                    #suburb list = tuple (sstr, int)
+    get_cyclomedia_data(config_path, PATHS.DB_USER, suburb_list=[("Südvorstadt", 70)])
