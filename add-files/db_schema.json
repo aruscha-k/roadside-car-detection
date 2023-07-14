@@ -37,25 +37,28 @@
         "name": "parking_cyclomedia",
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "segmentation_number", "type": "int"},
             {"name": "iteration_number", "type": "int"},
             {"name": "parking", "type": "text"},
             {"name": "value", "type": "text"},
             {"name": "percentage", "type": "float8"}
         ],
         "constraints": {
-            "primaryKey": ["segment_id", "iteration_number", "parking"]
+            "primaryKey": ["segment_id", "segmentation_number", "iteration_number"]
         }
     },
     {
         "name": "parking_air",
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "segmentation_number", "type": "int"},
+            {"name": "iteration_number", "type": "int"},
             {"name": "parking", "type": "text"},
             {"name": "value", "type": "text"},
             {"name": "percentage", "type": "float8"}
         ],
         "constraints": {
-            "primaryKey": ["segment_id", "parking", "value"]
+            "primaryKey": ["segment_id", "segmentation_number", "iteration_number"]
         }
     },
     {
@@ -90,6 +93,19 @@
             {"name": "start_lon", "type": "float8"},
             {"name": "end_lat", "type": "float8"},
             {"name": "end_lon", "type": "float8"}
+        ],
+        "constraints":{
+            "primaryKey": ["segment_id", "segmentation_number"],
+            "not null": ["segment_id", "segmentation_number"]
+        }
+    },
+    {
+        "name": "segments_segmentation_sides",
+        "columns": [
+            {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "segmentation_number", "type": "int"},
+            {"name": "left_coords", "type": "jsonb"},
+            {"name": "right_coords", "type": "jsonb"}
         ],
         "constraints":{
             "primaryKey": ["segment_id", "segmentation_number"],
