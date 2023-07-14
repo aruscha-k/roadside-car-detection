@@ -1,7 +1,6 @@
 
 from DB_helpers import open_connection
 from PATH_CONFIGS import CYCLO_IMG_FOLDER_PATH, AIR_CROPPED_ROTATED_FOLDER_PATH, RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, DB_USER, LOG_FILES
-from helpers_coordiantes import is_point_within_polygon
 from ML_IMGs_methods import run_detection
 import ERROR_CODES as ec
 from datetime import datetime
@@ -45,93 +44,95 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
 
             for i, segment_id in enumerate(segment_id_list):
                 print(f"------{i+1} of {len(segment_id_list)+1}, segment_ID: {segment_id}--------")
-                #get iteration steps
-                cursor.execute(""" SELECT segmentation_number, iteration_number, left_coordinates, right_coordinates FROM segments_segmentation_iteration WHERE segment_id = %s ORDER BY iteration_number ASC""", (segment_id, ))
+
+                if img_type == "cyclo":
+                    cursor.execute("""SELECT recording_id, segmentation_number, recording_lat, recording_lon FROM segments_cyclomedia WHERE segment_id = %s ORDER BY segmentation_number ASC""", (segment_id, ))
+                elif img_type == "air":
+                    cursor.execute("""SELECT segmentation_number, start_lat, start_lon, end_lat, end_lon FROM segments_segmentation WHERE segment_id = %s ORDER BY segmentation_number ASC""", (segment_id, ))
+
                 result_rows = cursor.fetchall()
                 if result_rows == []:
                     print("no result for segment: ", segment_id)
                     log(img_type=img_type, logstart=log_start, logtime=datetime.now(), message=f"{segment_id}: No Result for segment")
                     continue
 
-                for iteration_row in result_rows:
-              
-                    segmentation_no = iteration_row[0]
-                    iteration_number = iteration_row[1]
-                    left_coords = iteration_row[2]
-                    right_coords = iteration_row[3]
-                    poly = [left_coords[0], left_coords[1], right_coords[1], right_coords[0]]
-                    print(f"iteration: {iteration_number}")
+                else:
+                    print(f"Found {len(result_rows)} items for segment")
+                    img_path_and_position_list = []
+                    for idx, row in enumerate(result_rows):
+                        # check for existing in DB?: TODO
+                        # cursor.execute("""SELECT segment_id, segmentation_number, iteration_number, parking FROM {} WHERE segment_id = %s AND segmentation_number = %s AND iteration_number = %s""".format(result_table_name), (segment_id, segmentation_number, iteration_number,))
+                        # result = cursor.fetchone()
+                        # if len(result) == 2:
+                        #     print("EXISTS - skip")
+                        #     continue
 
-                    #if type is cyclo, have to find the recordings first that lie within the iteration box
-                    if img_type == "cyclo":
-                        cursor.execute("""SELECT recording_id, segmentation_number, recording_lat, recording_lon FROM segments_cyclomedia WHERE segment_id = %s ORDER BY segmentation_number ASC""", (segment_id, ))
-                        recordings_result = cursor.fetchall() 
-                        if recordings_result != []:
-                            #item[0] = recording_id, rec_lat, rec_lon = item[2], item[3]
-                            iteration_record_id_list = [item[0] for item in recordings_result if is_point_within_polygon((item[2], item[3]), poly)]
-                            print(iteration_record_id_list)
-                        else:
-                            print("no result for iteration on", segment_id)
-                            log(img_type=img_type, logstart=log_start, logtime=datetime.now(), message=f"{segment_id}: No Result on iteration ")
-                            continue
-                        # Create a Matplotlib figure and axis
-                        # poly = Polygon(poly)
-                        # x, y = poly.exterior.xy
-                        # fig, ax = plt.subplots()
-                        # ax.plot(x, y)
-                        # ax.plot(rec_lat, rec_lon, "ro")
-                        # plt.show()
+                        if img_type == "cyclo":
+                            
+                            recording_id = result_rows[idx][0]
+                            segmentation_number = result_rows[idx][1]
+                            recording_lat, recording_lon = result_rows[idx][2], result_rows[idx][3]
+                            img_position_information = (recording_lat, recording_lon)
 
-                    if segmentation_no < 10:
-                        segmentation_no_string = "0" + str(segmentation_no)
-                    else:
-                        segmentation_no_string = str(segmentation_no)
-
-                    img_path_list = []
-                    if img_type == "cyclo":
-                        
-                        for recording_id in iteration_record_id_list:
-                           
-                            if recording_id in [ec.CYCLO_BAD_RESPONSE_CODE, ec.CYCLO_MAX_DIST, ec.CYCLO_NO_REC_ID_SINGLE, ec.CYCLO_NO_REC_ID_TOTAL, ec.WRONG_COORD_SORTING]:
-                                log(img_type=img_type, logstart=log_start, logtime=datetime.now(), message=f"{segment_id}: Error code {recording_id}")
-
-                            img_file_path = CYCLO_IMG_FOLDER_PATH + str(segment_id)+ "_" + segmentation_no_string + "_" + str(recording_id) + ".jpg"
-
-                            if os.path.exists(img_file_path):
-                                img_path_list.append(img_file_path)
+                            if segmentation_number < 10:
+                                segmentation_no_string = "0" + str(segmentation_number)
                             else:
-                                log(img_type=img_type, logstart=log_start, logtime=datetime.now(), message= f"no file found for segment_id {segment_id}, iteration number {iteration_number}")
+                                segmentation_no_string = str(segmentation_number)
+                            img_file_path = CYCLO_IMG_FOLDER_PATH + str(segment_id)+ "_" + segmentation_no_string +  "_" + str(recording_id) + ".jpg"
+                            
 
-                    elif img_type == "air":
-                        img_file_path = AIR_CROPPED_ROTATED_FOLDER_PATH + str(ot_name) + "_" +  str(segment_id)+ "_" + segmentation_no_string + ".tif"
-                        #TODO CROP ITERATION BBOX FROM IMG
-
+                        elif img_type == "air":
+                            segmentation_number = result_rows[idx][0]
+                            start_lat, start_lon = result_rows[idx][1], result_rows[idx][2]
+                            end_lat, end_lon = result_rows[idx][3], result_rows[idx][4]
+                            img_position_information = ((start_lat, start_lon), (end_lat, end_lon))
+                            img_file_path = AIR_CROPPED_ROTATED_FOLDER_PATH + str(ot_name) + "_" +  str(segment_id)+ "_" + str(segmentation_number) + ".tif"
+                            
                         if os.path.exists(img_file_path):
-                            img_path_list.append(img_file_path)
+                            img_path_and_position_list.append((img_file_path, img_position_information))
                         else:
-                            log(img_type=img_type, logstart=log_start, logtime=datetime.now(), message= f"no file found for segment_id {segment_id}, iteration number {iteration_number}")
+                            print("invalid path", img_file_path)
+                            log(img_type=img_type, logstart=log_start, logtime=datetime.now(), message= f"no file found for segment_id {segment_id}")
+                            break
 
-                    if img_path_list == []:
-                        print("No images for segment")
+                        if img_path_and_position_list == []:
+                            print("No images for iteration")
+                            continue
+                        
+                        # get iteration step information
+                    cursor.execute(""" SELECT iteration_number, left_coordinates, right_coordinates FROM segments_segmentation_iteration WHERE segment_id = %s AND segmentation_number = %s ORDER BY iteration_number ASC""", (segment_id, segmentation_number, ))
+                    iteration_result_rows = cursor.fetchall()
+                    if iteration_result_rows == []:
+                        print("no iteration information for segment: ", segment_id)
+                        log(img_type=img_type, logstart=log_start, logtime=datetime.now(), message=f"{segment_id}: No iteration information for segment")
                         continue
 
-                    parking_dict = run_detection(img_path_list, img_type)
+                    iter_information = {}
+                    for iteration_row in iteration_result_rows:
+                    
+                        iteration_number = iteration_row[0]
+                        left_coords, right_coords = iteration_row[1], iteration_row[2]
+                        iteration_poly = [left_coords[0], left_coords[1], right_coords[1], right_coords[0]]
+                        iter_information[iteration_number] = iteration_poly
 
-                    #  write to DB # parking_dict = {'left': [()], 'right': []}
-                    for key, value in parking_dict.items():
+                    parking_dict = run_detection(img_path_and_position_list, img_type, iter_information)
+                    break
 
-                        for (parking, percentage) in parking_dict[key]:
-                            try:
-                                if img_type == "cyclo":
-                                    cursor.execute("""INSERT INTO {} VALUES (%s, %s, %s, %s, %s)""".format(result_table_name), (segment_id, iteration_number, key, parking, percentage,))
-                                elif img_type == "air":
-                                    cursor.execute("""INSERT INTO {} VALUES (%s, %s, %s, %s, %s)""".format(result_table_name), (segment_id, iteration_number, key, parking, percentage,))
+                    #  write to DB # parking_dict = {iteration_number: {'left': [()], 'right': []}}
+                    # for key, value in parking_dict.items():
 
-                            except psycopg2.errors.UniqueViolation as e:
-                                print(e)
-                                con.rollback()
-                                continue
-                            con.commit()
+                    #     for (parking, percentage) in parking_dict[key]:
+                    #         try:
+                    #             if img_type == "cyclo":
+                    #                 cursor.execute("""INSERT INTO {} VALUES (%s, %s, %s, %s, %s, %s)""".format(result_table_name), (segment_id, segmentation_number, iteration_number, key, parking, percentage,))
+                    #             elif img_type == "air":
+                    #                 cursor.execute("""INSERT INTO {} VALUES (%s, %s, %s, %s, %s)""".format(result_table_name), (segment_id, iteration_number, key, parking, percentage,))
+
+                    #         except psycopg2.errors.UniqueViolation as e:
+                    #             #print(e)
+                    #             con.rollback()
+                    #             continue
+                    #         con.commit()
 
 
 
