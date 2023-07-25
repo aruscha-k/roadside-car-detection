@@ -3,19 +3,18 @@ import cv2
 import os
 import torch
 from sklearn.cluster import KMeans
-from functools import reduce
 from collections import Counter
 from detectron2 import model_zoo
 from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
 
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-import matplotlib.patches as patches
-
-from PATH_CONFIGS import RES_FOLDER_PATH, CYCLO_DETECTION_MODEL, AIR_DETECTION_MODEL
+from PATH_CONFIGS import RES_FOLDER_PATH, CYCLO_DETECTION_MODEL, AIR_DETECTION_MODEL, CYCLO_IMG_FOLDER_PATH, AIR_CROPPED_ROTATED_FOLDER_PATH, AIR_TEMP_CROPPED_FOLDER_PATH
 from helpers_coordiantes import is_point_within_polygon
-from helpers_geometry import find_angle_to_y
+from AIR_IMGs_process import get_coordinates_from_px, get_rotation_angle_for_img, draw_on_geotiff
+
+from matplotlib import pyplot as plt
+from matplotlib import patches
+
 
 
 def load_air_predictor():
@@ -98,112 +97,94 @@ def remove_unparked_cars_for_air(instances):
 
     return instances
 
+def get_box_centers(img_filename, boxes_and_classes):
+    box_center_and_class  = []
 
-def rotate_image_and_bboxes(filename, angle, bboxes):
-    # Get the height and width of the image
-    height, width = cv2.imread(filename).shape[:2]
+    for bbox, detected_class in boxes_and_classes:
+        # Extract the coordinates of the bounding box (upper left and lower right)
+        x1, y1, x3, y3 = bbox[0], bbox[1], bbox[2],  bbox[3]
 
-    # Calculate the center of the image
-    center_x = width / 2
-    center_y = height / 2
+        # read the original geotif and extract the underlying coordinates from the pixel values
+        lat1, lon1 = get_coordinates_from_px(os.path.join(AIR_TEMP_CROPPED_FOLDER_PATH, img_filename), x1, y1)
+        # lat2, lon2 = get_coordinates_from_px(os.path.join(AIR_TEMP_CROPPED_FOLDER_PATH, img_filename), x2, y2)
+        lat3, lon3 = get_coordinates_from_px(os.path.join(AIR_TEMP_CROPPED_FOLDER_PATH, img_filename), x3, y3)
+        # lat4, lon4 = get_coordinates_from_px(os.path.join(AIR_TEMP_CROPPED_FOLDER_PATH, img_filename), x4, y4)
 
-    # Calculate the rotation matrix
-    rotation_matrix = cv2.getRotationMatrix2D((center_x, center_y), angle, 1.0)
+        bbox_center_lat = (lat1 + lat3) / 2
+        bbox_center_lon = (lon1 + lon3) / 2
 
-    # Calculate the sine and cosine of the rotation angle
-    abs_cos_angle = abs(rotation_matrix[0, 0])
-    abs_sin_angle = abs(rotation_matrix[0, 1])
-
-    # Calculate the new dimensions of the image
-    new_width = int(height * abs_sin_angle + width * abs_cos_angle)
-    new_height = int(height * abs_cos_angle + width * abs_sin_angle)
-
-    # Calculate the translation matrix to center the image after rotation
-    dx = int((new_width - width) / 2)
-    dy = int((new_height - height) / 2)
-
-    # img = Image.open(filename)
-    # # expand 1 is used to keep the image from beeing cropped when rotated >90
-    # rotated_img = img.rotate(angle=angle, expand=1)
-
-    # Calculate the new coordinates of the bounding boxes
-    rotated_bboxes  = []
-    centers = []
-    for bbox in bboxes:
-        # Extract the coordinates of the bounding box
-        x1, y1, x3, y3 = bbox
-        x2 = x3
-        y2 = y1
-        x4 = x1
-        y4 = y3
-
-        # Translate the coordinates to the center of the image
-        x1 -= center_x
-        y1 -= center_y
-        x2 -= center_x
-        y2 -= center_y
-        x3 -= center_x
-        y3 -= center_y
-        x4 -= center_x
-        y4 -= center_y
-
-        # Rotate the coordinates in the opposite direction
-        new_x1 = x1 * abs_cos_angle + y1 * abs_sin_angle
-        new_y1 = -x1 * abs_sin_angle + y1 * abs_cos_angle
-        new_x2 = x2 * abs_cos_angle + y2 * abs_sin_angle
-        new_y2 = -x2 * abs_sin_angle + y2 * abs_cos_angle
-        new_x3 = x3 * abs_cos_angle + y3 * abs_sin_angle
-        new_y3 = -x3 * abs_sin_angle + y3 * abs_cos_angle
-        new_x4 = x4 * abs_cos_angle + y4 * abs_sin_angle
-        new_y4 = -x4 * abs_sin_angle + y4 * abs_cos_angle
-
-        # Translate the coordinates back to the top-left corner of the image
-        new_x1 += center_x + dx
-        new_y1 += center_y + dy
-        new_x2 += center_x + dx
-        new_y2 += center_y + dy
-        new_x3 += center_x + dx
-        new_y3 += center_y + dy
-        new_x4 += center_x + dx
-        new_y4 += center_y + dy
-
-        # bbox_center_x = (new_x1 + new_x3) / 2
-        # bbox_center_y = (new_y1 + new_y3) / 2
-
-        # Add the new coordinates to the list of bounding boxes
-        rotated_bboxes .append(
-            [int(new_x1), int(new_y1), int(new_x2), int(new_y2), int(new_x3), int(new_y3), int(new_x4), int(new_y4)])
-        #centers.append([int(bbox_center_x), int(bbox_center_y)])
-
-    return rotated_bboxes 
+        box_center_and_class.append(((bbox_center_lat, bbox_center_lon), detected_class))
+    return box_center_and_class
 
 
+# takes the rotated image and recalculates the detected bounding boxes for the unrotated image
+# PARAMS:
+#  img_filename: the img_filename
+#  angle_degrees: the rotation angle of the rotated image in degrees
+#  boxes_and_classes: the detected boxes and corresponding detected class
+# RETURNS:
+#  box_center_and_class (list) of tuples ((boxcenter1, boxcenter2), class)
+def rotate_image_and_boxes(img_filename, boxes_and_classes, angle_degrees):
 
-def calculate_iou(box1, box2):
-    # Calculate the coordinates of the intersection rectangle
-    x1 = max(box1[0], box2[0])
-    y1 = max(box1[1], box2[1])
-    x2 = min(box1[2], box2[2])
-    y2 = min(box1[3], box2[3])
+    image = cv2.imread(os.path.join(AIR_CROPPED_ROTATED_FOLDER_PATH, img_filename))
+    height, width = image.shape[:2]
+    center = (width / 2, height / 2)
     
-    # If the boxes do not overlap, return IoU of 0
-    if x2 < x1 or y2 < y1:
-        return 0.0
+    rotation_matrix = cv2.getRotationMatrix2D(center, angle_degrees, 1.0)
+    rotated_image = cv2.warpAffine(image, rotation_matrix, (width, height))
     
-    # Calculate the areas of the two boxes
-    area_box1 = (box1[2] - box1[0]) * (box1[3] - box1[1])
-    area_box2 = (box2[2] - box2[0]) * (box2[3] - box2[1])
     
-    # Calculate the area of overlap
-    intersection_area = (x2 - x1) * (y2 - y1)
+    # Rotate bounding box coordinates
+    rotated_boxes_and_classes = []
+    box_center_and_class = []
+    boxes_px = [] #for debugging  
+    for box, pred_class in boxes_and_classes:
+
+        upper_left_x, upper_left_y = box[0], box[1]
+        lower_right_x, lower_right_y = box[2], box[3]
+        #assign new:
+        upper_right_x, upper_right_y = box[2], box[1]
+        lower_left_x, lower_left_y = box[0], box[3]
+
+       # Append 1 to the coordinates to convert them into homogeneous coordinates (x, y, 1)
+        upper_left_homogeneous = np.array([upper_left_x, upper_left_y, 1])
+        lower_right_homogeneous = np.array([lower_right_x, lower_right_y, 1])
+        upper_right_homogeneous = np.array([upper_right_x, upper_right_y, 1])
+        lower_left_homogeneous = np.array([lower_left_x, lower_left_y, 1])
+        
+        # Transform the points using the 2x3 rotation matrix
+        upper_left_rotated = np.dot(rotation_matrix, upper_left_homogeneous)
+        lower_right_rotated = np.dot(rotation_matrix, lower_right_homogeneous)
+        upper_right_rotated = np.dot(rotation_matrix, upper_right_homogeneous)
+        lower_left_rotated = np.dot(rotation_matrix, lower_left_homogeneous)
+
+        # Append the transformed points to the rotated_boxes list (upper_left is now rotated and is in bottom right corner)
+        rotated_boxes_and_classes.append(([(upper_left_rotated[0], upper_left_rotated[1]), (upper_right_rotated[0], upper_right_rotated[1]), (lower_right_rotated[0], lower_right_rotated[1]), (lower_left_rotated[0], lower_left_rotated[1])], pred_class))
+        box_center = ((upper_left_rotated[0] + lower_right_rotated[0]) / 2, (upper_left_rotated[1] + lower_right_rotated[1]) / 2)
+        boxes_px.append(box_center)
+
+        
+        # read the original geotif and extract the underlying coordinates from the pixel values
+        center_lon, center_lat = get_coordinates_from_px(os.path.join(AIR_TEMP_CROPPED_FOLDER_PATH, img_filename), box_center[0], box_center[1])
+        box_center_and_class.append(((center_lon, center_lat), pred_class))
     
-    # Calculate the area of union
-    union_area = area_box1 + area_box2 - intersection_area
+
+    # -- FOR DEBUGGING --
+    # Apply rotation to the image
     
-    # Calculate the IoU
-    iou = intersection_area / union_area
-    
-    return iou
+    print("Shape of second rotated image: ", rotated_image.shape)
+    fig, ax = plt.subplots()
+    im = ax.imshow(rotated_image)
+    #for box, p_class in rotated_boxes:
+    for pt in boxes_px:
+        print(pt)
+        #rect = patches.Polygon(box, closed=True, edgecolor='r', linewidth=2)
+        #ax.add_patch(rect)
+        ax.plot(pt[0], pt[1], 'ro')
+    plt.show()
+    # -- END --
+    print("box centers and classes: ", box_center_and_class)
+    return box_center_and_class
 
 
 def add_no_detection_area_for_cyclo(im):
@@ -254,19 +235,17 @@ def calculate_parking(predictions, img_type):
 
     for iteration_number in predictions.keys():
         parking_dict[iteration_number] = {}
-        # all_left = reduce(lambda a,b: a+b, predictions[iteration_number]['left'])
-        # all_right = reduce(lambda a,b: a+b, predictions[iteration_number]['right'])
 
         #METHOD TO ADD ONLY THE BEST DETECTION PERCENTAGE
         # most_common(1) chooses only the first most common item
-        # Extract the second item from each tuple (class) and count their occurrences
-        num_left_most_common = Counter(item[1] for sublist in predictions[iteration_number]['left'] for item in sublist).most_common(1)[0][1]
-        class_left_most_common = Counter(item[1] for sublist in predictions[iteration_number]['left'] for item in sublist).most_common(1)[0][0]
+        # Extract the second item from each tuple (=class) and count their occurrences
+        num_left_most_common = Counter(item[1] for item in predictions[iteration_number]['left']).most_common(1)[0][1]
+        class_left_most_common = Counter(item[1] for item in predictions[iteration_number]['left']).most_common(1)[0][0]
         left_percentage = num_left_most_common/len(predictions[iteration_number]['left'])*100
         parking_dict[iteration_number]['left'] = ((class_dict[class_left_most_common], round(left_percentage,2)))
 
-        num_right_most_common = Counter(item[1] for sublist in predictions[iteration_number]['right'] for item in sublist).most_common(1)[0][1]
-        class_right_most_common = Counter(item[1] for sublist in predictions[iteration_number]['right'] for item in sublist).most_common(1)[0][0]
+        num_right_most_common = Counter(item[1] for item in predictions[iteration_number]['right']).most_common(1)[0][1]
+        class_right_most_common = Counter(item[1] for item in predictions[iteration_number]['right']).most_common(1)[0][0]
         right_percentage = num_right_most_common / len(predictions[iteration_number]['right'])*100
         parking_dict[iteration_number]['right'] = ((class_dict[class_right_most_common], round(right_percentage,2)))
 
@@ -301,7 +280,11 @@ def calculate_parking(predictions, img_type):
 
     return parking_dict
 
+
+# PARAMS
 # img_path_and_position_list = (imgpath, (recording_lat, recording_lon))
+# img_type (string) "air"/"cyclo" depending on the input image
+# iter_information_dict (dict) key = iteration_number, value = iteration_poly (bbox)
 def run_detection(img_path_and_position_list, img_type, iter_information_dict):
     print("[i] Running parking detection")
 
@@ -313,103 +296,92 @@ def run_detection(img_path_and_position_list, img_type, iter_information_dict):
         print("[!] invalid img type - cannot load predictor")
 
     predictions = dict()
+
+    if img_type == "air":
+        img_file = img_path_and_position_list[0][0]
+        str_pts = img_path_and_position_list[0][1]
+        print("Shape of cut out image from geotif: ", cv2.imread(os.path.join(AIR_TEMP_CROPPED_FOLDER_PATH, img_file)).shape)
+        cropped_rotated_img = cv2.imread(os.path.join(AIR_CROPPED_ROTATED_FOLDER_PATH, img_file))
+        angle_degrees = get_rotation_angle_for_img(str_pts=str_pts)
+        #print("angle", angle_degrees)
+        outputs = predictor(cropped_rotated_img)
+        instances = outputs["instances"].to("cpu")
+        
+        if len(instances) > 2:
+            instances = remove_unparked_cars_for_air(instances)
+
+        #visualize_prediction(os.path.join(AIR_CROPPED_ROTATED_FOLDER_PATH, img_file), "air")
+        bboxes = instances.pred_boxes.tensor.cpu().numpy()
+        classes = instances.pred_classes.cpu().numpy()
+        all_left, all_right = assign_left_right(cropped_rotated_img, bboxes, classes)
+        right_rotated = rotate_image_and_boxes(img_file, all_right, -angle_degrees)
+        left_rotated = rotate_image_and_boxes(img_file, all_left, -angle_degrees)
+
+        
+
     for iteration_number, iteration_poly in iter_information_dict.items():
-        print("iteration number: ", iteration_number)
+        
+        print("iter number and poly", iteration_number, iteration_poly)
+        predictions[iteration_number] = {}
         
         #if type is cyclo, have to find the recordings first that lie within the iteration box
         if img_type == "cyclo":
-            iteration_record_id_list = [img_path for img_path, (recording_lat, recording_lon) in img_path_and_position_list if is_point_within_polygon((recording_lat, recording_lon), iteration_poly)]
-            print(iteration_record_id_list)
-            for img_path in iteration_record_id_list:
-                im = cv2.imread(img_path)
-                if im is not None:
-                    im = add_no_detection_area_for_cyclo(im)
-                    outputs = predictor(im)
+            left, right = [], []
+            iteration_record_id_list = [img_file for img_file, (recording_lat, recording_lon) in img_path_and_position_list if is_point_within_polygon((recording_lat, recording_lon), iteration_poly)]
+            for img_file in iteration_record_id_list:
+                img = cv2.imread(os.path.join(CYCLO_IMG_FOLDER_PATH, img_file))
+                if img is not None:
+                    img = add_no_detection_area_for_cyclo(img)
+                    outputs = predictor(img)
                     instances = outputs["instances"].to("cpu")
                     bboxes = instances.pred_boxes.tensor.cpu().numpy()
                     classes = instances.pred_classes.cpu().numpy()
-                    left, right = assign_left_right(im, bboxes, classes)
+                    im_left, im_right = assign_left_right(img, bboxes, classes)
+                    left.append(im_left)
+                    right.append(im_right)
 
         if img_type == "air":
-            img_path = img_path_and_position_list[0][0]
-            str_pts = img_path_and_position_list[0][1]
-            angle = find_angle_to_y(str_pts)
-            outputs = predictor(img_path)
-            instances = outputs["instances"].to("cpu")
-            if len(instances) > 2:
-                instances = remove_unparked_cars_for_air(instances)
-
-            bboxes = instances.pred_boxes.tensor.cpu().numpy()
-            classes = instances.pred_classes.cpu().numpy()
-            left, right = assign_left_right(im, bboxes, classes)
-
-            #rotate image back to get the underlaying cooridnates for each bounding box
-            left = (rotate_image_and_bboxes(img_path, angle, left), left[1])
-            right = (rotate_image_and_bboxes(img_path, angle, right), right[1])
-
+            draw_on_geotiff(os.path.join(AIR_TEMP_CROPPED_FOLDER_PATH, img_file), right_rotated, iteration_poly)
+            draw_on_geotiff(os.path.join(AIR_TEMP_CROPPED_FOLDER_PATH, img_file), left_rotated, iteration_poly)
+            
             #check which bboxes overlay with the current iteration window
-            left = [(bbox, pred_class) for bbox, pred_class in left if calculate_iou(bbox, iteration_poly) >= 0.5]
-            right = [(bbox, pred_class) for bbox, pred_class in right if calculate_iou(bbox, iteration_poly) >= 0.5]
+            left = [(center, pred_class) for center, pred_class in left_rotated if is_point_within_polygon(center, iteration_poly)]
+            right = [(center, pred_class) for center, pred_class in right_rotated if is_point_within_polygon(center, iteration_poly)]
+                    # Create a Matplotlib figure and axis
 
-        # add [-1] if no cars were detected 
-        # if len(left) == 0:
-        #     if iteration_number in predictions.keys():
-        #         predictions[iteration_number]['left'].append([-1])
-        #     else:
-        #         predictions[iteration_number]['left'][-1]
-        # else: 
-        #     if iteration_number in predictions.keys():
-        #         predictions[iteration_number]['left'].append(left)
-        #     else:
-        #         predictions[iteration_number]['left'][left]
-
-        # if len(right) == 0:
-        #     if iteration_number in predictions.keys():
-        #         predictions[iteration_number]['right'].append([-1])
-        #     else:
-        #         predictions[iteration_number]['right'][-1]
-        # else:
-        #     if iteration_number in predictions.keys():
-        #         predictions[iteration_number]['right'].append(right)
-        #     else:
-        #         predictions[iteration_number]['right'][right]
-        
-        if iteration_number in predictions.keys():
+                # add [-1] if no cars were detected
+        if 'left' in predictions[iteration_number].keys():
             if len(left) == 0:
-                predictions[iteration_number]['left'].append([-1])
+                predictions[iteration_number]['left'].append(([], -1))
             else:
                 predictions[iteration_number]['left'].append(left)
-
+        else: 
+            if len(left) == 0:
+                predictions[iteration_number]['left'] = [([], -1)]
+            else:
+                predictions[iteration_number]['left'] = left
+        if 'right' in predictions[iteration_number].keys():
             if len(right) == 0:
-                predictions[iteration_number]['right'].append([-1])
+                predictions[iteration_number]['right'].append(([], -1))
             else:
                 predictions[iteration_number]['right'].append(right)
         else:
-            predictions[iteration_number] = {
-                'left': [[-1]] if len(left) == 0 else [left],
-                'right': [[-1]] if len(right) == 0 else [right]
-            }
-        
-    print(predictions)
-                    
-    parking_dict =  calculate_parking(predictions, img_type)
+            if len(right) == 0:
+                predictions[iteration_number]['right'] = [([], -1)]
+            else:
+                predictions[iteration_number]['right'] = right
+            
 
+    print(predictions)             
+    parking_dict =  calculate_parking(predictions, img_type)
     print(parking_dict)      
         # return parking_dict
-
-
-   #     continue
-        # Create a Matplotlib figure and axis
-        # poly = Polygon(poly)
-        # x, y = poly.exterior.xy
-        # fig, ax = plt.subplots()
-        # ax.plot(x, y)
-        # ax.plot(rec_lat, rec_lon, "ro")
-        # plt.show()
 
 # -------- for debug only ----------------
 # visualize prediction for 1 image
 def visualize_prediction(filename, img_type):
+    from detectron2.utils.visualizer import Visualizer
+
     if img_type == "air":
         predictor = load_air_predictor()
         metadata = {"thing_classes": ['auto-diagonal', 'auto-parallel', 'baumscheibe', 'sperrflaeche', 'zebrastreifen']}
@@ -426,8 +398,7 @@ def visualize_prediction(filename, img_type):
     cv2.imshow('Prediction', out.get_image()[:, :, ::-1])
     cv2.waitKey(0)
 
+# if __name__ == "__main__":
+    
 
-if __name__ == "__main__":
-    from detectron2.utils.visualizer import Visualizer
-
-    visualize_prediction()
+#     visualize_prediction()
