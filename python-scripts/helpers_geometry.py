@@ -1,13 +1,19 @@
 import math
 from GLOBAL_VARS import CITY_CENTERPT_LEIPZIG
 
+# PARAMS:
+#  str_pts: 2 points of the beginning and end of street
+# RETURNS:
+#  arcos: angle to y axis in -> radians <-
 # https://math.stackexchange.com/questions/714378/find-the-angle-that-creating-with-y-axis-in-degrees
 def find_angle_to_y(str_pts):
     start_pt, end_pt = str_pts[0], str_pts[1]
     y1 = max([start_pt[1], end_pt[1]])
     y2 = min([start_pt[1], end_pt[1]])  
     arcos = math.acos((y1-y2)/math.sqrt((start_pt[0]-end_pt[0])**2 + (y1-y2)**2))
+    #print("Angle to y in degrees:", math.degrees(arcos))
     return arcos
+
 
 # between two points, find the angle of the line they construct to the x-axis
 # source https://stackoverflow.com/questions/41855261/calculate-the-angle-between-a-line-and-x-axis
@@ -24,10 +30,15 @@ def find_angle_to_x(str_pts):
     elif m == 0:
         return math.radians(0)
     else:
-        #print(f"angle to x: {math.degrees(math.atan(m))}")
+        # print(f"angle to x: {math.degrees(math.atan(m))}")
         return math.atan(m)
 
 
+# given a specific point for a cities center, calculate in which quadrant a street lies, when point of origin is city center
+# PARAMS: 
+# str_pts: 2 points of the beginning (index = 0) and end (index=1) of street
+# RETURNS:
+# quadrant: (int) between 1-4 according to the naming of quadrants anti-clockwise
 def calculate_quadrant_from_center(str_pts):
     x = str_pts[0][0]
     y = str_pts[0][1]
@@ -114,6 +125,15 @@ def calculate_start_end_pt(str_pts):
     return str_start, str_end
 
 
+# method to use, when getting images from cyclomedia: for this a segment has to be iterated by x meters along the street
+# this method helps choosing the right condition regarding quadrant and slope of the street
+# PARAMS:
+#   slope: slope of the line of the street
+#   x_angle: the angle of the street to the x axis in degrees (TODO CHECK)
+#   str_start, str_end: tuple of (lon, lat) each
+#   x_shifted, y_shifted: the current shift point as (lon, lat)
+# RETURNS:
+#   True/False (bool): for the while-loop in which the shifting happens
 def segment_iteration_condition(slope, x_angle, str_start, str_end, x_shifted, y_shifted):
     quadrant = calculate_quadrant_from_center([str_start, str_end])
     # street parallel to y 
@@ -190,6 +210,7 @@ def segment_iteration_condition(slope, x_angle, str_start, str_end, x_shifted, y
                 else:
                     return False
 
+
 # Calculate a slope of a line (! uses the first and last point, so order if needed)
 # !!! check coordinate reference system => different results for coordinates in different coordinate systems (EPSG4326 or EPSG 25833)
 # PARAMS:
@@ -228,8 +249,6 @@ def get_y_intercept(pt, slope):
     return b
 
 
-
-
 # given a list of two points (start and end point) of a line, 
 # this method calculates the perpendicular (lotgerade) of the line at the start and end point
 # PARAMS:
@@ -259,7 +278,7 @@ def calc_interception_of_two_lines(m1, b1, m2, b2):
     return (x,y)
 
 
-# given two points andthe wanted width calculate two parallel lines and perpendiculars
+# given two points and the wanted width calculate two parallel lines and perpendiculars so get a bounding box for a street segment
 # function cant be joined with calculate_start_end segments, because it is used on iteration of segmentated semgents => more detailed
 # RETURNS:
 # bouding_box (list) with points in order [upper_left, upper_right, lower_right, lower_left] / [start_left, end_left, end_right, start_right]
