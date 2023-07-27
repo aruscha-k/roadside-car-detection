@@ -59,6 +59,12 @@ def calculate_quadrant_from_center(str_pts):
     return quadrant
 
 
+# because width in city data is sometimes to narrow, recalculate width with the wished factor
+def calculate_specific_street_width(width):
+    width = width + (0.75*width)
+    return width
+
+
 # method to determine the start and endpoint of a line according to this projects definition (s.WIKI) according to slope and quadrant the street lies in
 # starting point is the one closest to city center
 # PARAMS: str_pts (list) of street points
