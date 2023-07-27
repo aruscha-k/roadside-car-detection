@@ -1,7 +1,7 @@
 import ERROR_CODES as ec
 from GLOBAL_VARS import ITERATION_LENGTH, CITY_CENTERPT_LEIPZIG
 from DB_helpers import open_connection
-from helpers_geometry import calculate_start_end_pt, calculate_bounding_box, find_angle_to_x, calculate_slope, get_y_intercept, segment_iteration_condition
+from helpers_geometry import calculate_start_end_pt, calculate_bounding_box, find_angle_to_x, calculate_slope, get_y_intercept, segment_iteration_condition, calculate_specific_street_width
 from helpers_coordiantes import convert_coords, sort_coords, shift_pt_along_street
 from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, DB_USER
 
@@ -47,6 +47,8 @@ def create_segm_gid_relation(db_config, db_user):
 def create_iteration_segments(str_start, str_end, width):
     print("Creating iteration segments")
     iteration_segments = []
+    # width is multiplied with a factor
+    width = calculate_specific_street_width(width)
 
     x_angle = find_angle_to_x([str_start, str_end])
     slope = calculate_slope([str_start, str_end])
