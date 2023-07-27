@@ -206,8 +206,9 @@ def plot_line(str: list, bbox: list):
 
 
 # debugging method to plot the iteration poly and the points on a geotif
-def draw_on_geotiff(geotiff_path, pts, iter_poly):
-    pts, classes = map(list, zip(*pts))
+def draw_on_geotiff(plot_title, geotiff_path, pts, iter_poly):
+    if len(pts) != 0:
+        pts, classes = map(list, zip(*pts))
     # Open the GeoTIFF file using rasterio
     with rasterio.open(geotiff_path) as dataset:
     
@@ -231,15 +232,17 @@ def draw_on_geotiff(geotiff_path, pts, iter_poly):
         plt.colorbar()
         plt.xlabel('Longitude')
         plt.ylabel('Latitude')
-        plt.title('GeoTIFF with Points')
+        plt.title(plot_title)
 
-        # Plot the points on the same plot as the GeoTIFF
-        lon, lat = zip(*pts)  # Assuming 'pts' is a list of (longitude, latitude) tuples
-        plt.scatter(lon, lat, color='red', s=5)
-        polyx, polyy = zip(*iter_poly)
-        plt.scatter(polyx, polyy, color="blue", s=8)
-        plt.show()
-
+        if len(pts) != 0:
+            # Plot the points on the same plot as the GeoTIFF
+            lon, lat = zip(*pts)  # Assuming 'pts' is a list of (longitude, latitude) tuples
+            plt.scatter(lon, lat, color='red', s=5)
+            polyx, polyy = zip(*iter_poly)
+            plt.scatter(polyx, polyy, color="blue", s=8)
+            plt.show()
+        else:
+            "[!] No detections to plot!"
 
 
 # ---------- end helper methods for debugging ------------------ #
