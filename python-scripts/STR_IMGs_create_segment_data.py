@@ -194,7 +194,7 @@ def get_cyclomedia_data(db_config, db_user, suburb_list):
             
                 print(f"------{i+1} of {len(segment_id_list)+1}, segment_ID: {segment_id}--------")
 
-                cursor.execute("""SELECT * FROM segments_segmentation WHERE segment_id = %s ORDER BY segmentation_number""", (segment_id, ))
+                cursor.execute("""SELECT segmentation_number, start_lat, start_lon, end_lat, end_lon FROM segments_segmentation WHERE segment_id = %s ORDER BY segmentation_number""", (segment_id, ))
                 segmentation_result_rows = cursor.fetchall()
 
                 #TODO: sollte nicht mehr auftreten nach einführung von error codes
@@ -204,7 +204,7 @@ def get_cyclomedia_data(db_config, db_user, suburb_list):
 
                 # check if information is valid #TODO zusammenführen
                 elif len(segmentation_result_rows) == 1:
-                    segmentation_no = segmentation_result_rows[0][1]
+                    segmentation_no = segmentation_result_rows[0][0]
                     if segmentation_no == ec.WRONG_COORD_SORTING:
                         rec_IDs = [{'recording_id': ec.WRONG_COORD_SORTING, 'street_point': (0,0), 'recording_point': (0,0), 'recording_year': 0}]
                         load_into_db(rec_IDs=rec_IDs, segment_id=segment_id, segmentation_number=segmentation_no, connection=con)
@@ -236,9 +236,9 @@ def get_cyclomedia_data(db_config, db_user, suburb_list):
                     shift_length = 3
                     # segment is not divided into smaller parts
                     if len(segmentation_result_rows) == 1:
-                        segmentation_number = segmentation_result_rows[0][1]
-                        start_lat, start_lon = segmentation_result_rows[0][2], segmentation_result_rows[0][3]
-                        end_lat, end_lon = segmentation_result_rows[0][4], segmentation_result_rows[0][5]
+                        segmentation_number = segmentation_result_rows[0][0]
+                        start_lat, start_lon = segmentation_result_rows[0][1], segmentation_result_rows[0][2]
+                        end_lat, end_lon = segmentation_result_rows[0][3], segmentation_result_rows[0][4]
                         temp_coords = [(start_lat, start_lon), (end_lat, end_lon)]
                         y_angle = find_angle_to_y(temp_coords)
                         slope_origin = calculate_slope(temp_coords)
@@ -252,10 +252,9 @@ def get_cyclomedia_data(db_config, db_user, suburb_list):
                     elif len(segmentation_result_rows) > 1:
                         
                         for idx, row in enumerate(segmentation_result_rows):
-                            segmentation_number = segmentation_result_rows[idx][1]
-                            print("--segmentation_number: ", segmentation_number)
-                            start_lat, start_lon = segmentation_result_rows[idx][2], segmentation_result_rows[idx][3]
-                            end_lat, end_lon = segmentation_result_rows[idx][4], segmentation_result_rows[idx][5]
+                            segmentation_number = segmentation_result_rows[idx][0]
+                            start_lat, start_lon = segmentation_result_rows[idx][1], segmentation_result_rows[idx][2]
+                            end_lat, end_lon = segmentation_result_rows[idx][3], segmentation_result_rows[idx][4]
                             temp_coords = [(start_lat, start_lon), (end_lat, end_lon)]
                             y_angle = find_angle_to_y(temp_coords)
                             slope_origin = calculate_slope(temp_coords)

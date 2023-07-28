@@ -59,12 +59,6 @@ def calculate_quadrant_from_center(str_pts):
     return quadrant
 
 
-# because width in city data is sometimes to narrow, recalculate width with the wished factor
-def calculate_specific_street_width(width):
-    width = width + (0.75*width)
-    return width
-
-
 # method to determine the start and endpoint of a line according to this projects definition (s.WIKI) according to slope and quadrant the street lies in
 # starting point is the one closest to city center
 # PARAMS: str_pts (list) of street points
@@ -142,7 +136,7 @@ def calculate_start_end_pt(str_pts):
 #   True/False (bool): for the while-loop in which the shifting happens
 def segment_iteration_condition(slope, x_angle, str_start, str_end, x_shifted, y_shifted):
     quadrant = calculate_quadrant_from_center([str_start, str_end])
-    # street parallel to y 
+    # street parallel to y; endpoint is dependent on y-value
     if slope == None:
         if y_shifted > CITY_CENTERPT_LEIPZIG[1]:
             while y_shifted < str_end[1]:
@@ -155,7 +149,7 @@ def segment_iteration_condition(slope, x_angle, str_start, str_end, x_shifted, y
             else:
                 return False
 
-    # if street parallel to x
+    # if street parallel to x; endpoint is dependent on x-value
     elif slope == 0:
         if x_shifted > CITY_CENTERPT_LEIPZIG[0]:
             while x_shifted < str_end[0]:
