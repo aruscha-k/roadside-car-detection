@@ -89,6 +89,7 @@
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
             {"name": "segmentation_number", "type": "int"},
+            {"name": "width", "type": "float8"},
             {"name": "start_lat", "type": "float8"},
             {"name": "start_lon", "type": "float8"},
             {"name": "end_lat", "type": "float8"},
