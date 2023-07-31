@@ -204,8 +204,10 @@ def add_no_detection_area_for_cyclo(im):
 # function to detect midpoint of image and assign bboxes to left or right side depending on their positions in regard to the midpoint
 # RETURNS: left / right (list of tuples (bbox, class)
 def assign_left_right(im, boxes, classes):
-    left = []
-    right = []
+    left, right = [], []
+    if len(boxes) == 0:
+        return left, right
+    
     im_width = im.shape[1]
     im_height = im.shape[0]
     midpoint = (int(im_width/2),int(im_height/2))
@@ -416,7 +418,7 @@ def visualize_prediction(filename, img_type):
     outputs = predictor(im)
     instances = outputs["instances"].to("cpu")
     
-    v = Visualizer(im[:, :, ::-1], metadata=metadata, scale=1.0)
+    v = Visualizer(im[:, :, ::-1], metadata=metadata, scale=0.5)
     out = v.draw_instance_predictions(instances)
     cv2.imshow('Prediction', out.get_image()[:, :, ::-1])
     cv2.waitKey(0)

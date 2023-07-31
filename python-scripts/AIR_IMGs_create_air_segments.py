@@ -7,21 +7,6 @@ from helpers_geometry import calculate_bounding_box
 
 import json
 
-
-# bbox = [start_left, end_left, end_right, start_right]
-def write_bbox_to_DB(bbox, cursor, segment_id, segmentation_number):
-    left_coords = [bbox[0], bbox[1]]
-    right_coords = [bbox[3], bbox[2]]
-    left_coords = [convert_coords("EPSG:25833", "EPSG:4326", coord[0], coord[1]) for coord in left_coords]
-    right_coords = [convert_coords("EPSG:25833", "EPSG:4326", coord[0], coord[1]) for coord in right_coords]
-    try:
-        cursor.execute("""
-                    INSERT INTO segments_segmentation_sides 
-                    VALUES (%s, %s, %s, %s)""", (segment_id, segmentation_number, json.dumps(left_coords), json.dumps(right_coords), ))
-    except:
-        return
-
-
 # suburb_list = [(ot_name, ot_nr), ..]
 def create_air_segments(db_config_path, db_user, suburb_list):
 
@@ -86,11 +71,9 @@ def create_air_segments(db_config_path, db_user, suburb_list):
                     temp_coords = [(start_lat, start_lon), (end_lat, end_lon)]
                     segment_img_filename = str(ot_name) + "_" + str(segment_id) + "_" + str(segmentation_number) + ".tif"
 
+                    # calculate the bounding box
                     #bbox = [start_left, end_left, end_right, start_right]
                     bbox = calculate_bounding_box(temp_coords, median_breite)
-                    # write bbox data to DB for visualisation 
-                    write_bbox_to_DB(bbox, cursor, segment_id, segmentation_number)
-                    con.commit()
 
                     rotation_angle = get_rotation_angle_for_img(temp_coords)
                     cut_out_success = crop_and_rotate_geotiff(in_tif, segment_img_filename, bbox, rotation_angle)
@@ -108,8 +91,6 @@ def create_air_segments(db_config_path, db_user, suburb_list):
             
                         temp_coords = [(start_lat, start_lon), (end_lat, end_lon)]
                         bbox = calculate_bounding_box(temp_coords, median_breite)
-                        write_bbox_to_DB(bbox, cursor, segment_id, segmentation_number)
-                        con.commit()
                     
                         rotation_angle = get_rotation_angle_for_img(temp_coords)
                         cut_out_success = crop_and_rotate_geotiff(in_tif, segment_img_filename, bbox, rotation_angle)

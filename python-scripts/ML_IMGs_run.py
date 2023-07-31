@@ -129,7 +129,7 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
 
                         # write to DB # parking_dict = {iteration_number: {'left': (parking, percentage), 'right': (parking, percentage)}}
                         for iteration_number, value in parking_dict.items():
-                            for side, (parking, percentage) in value:
+                            for side, (parking, percentage) in value.items():
                                 try:
                                     #if img_type == "cyclo":
                                     cursor.execute("""INSERT INTO {} VALUES (%s, %s, %s, %s, %s, %s)""".format(result_table_name), (segment_id, segmentation_number, iteration_number, side, parking, percentage,))
@@ -147,7 +147,7 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
 if __name__ == "__main__":
 
     db_config_path = os.path.join(RES_FOLDER_PATH, DB_CONFIG_FILE_NAME)
-    run(db_config_path, DB_USER, [("Südvorstadt", 40)], img_type="cyclo", result_table_name="parking_cyclomedia")
+    #run(db_config_path, DB_USER, [("Südvorstadt", 40)], img_type="cyclo", result_table_name="parking_cyclomedia")
     run(db_config_path, DB_USER, [("Südvorstadt", 40)], img_type="air", result_table_name="parking_air")
 
 
