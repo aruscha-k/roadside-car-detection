@@ -43,8 +43,7 @@ def create_segm_gid_relation(db_config, db_user):
                                 WHERE segm_gid = %s""",(segment_id, segm_gid,))
                 
             
-def create_iteration_segments(str_start, str_end, width):
-    print("Creating iteration segments")
+def create_iteration_boxes(str_start, str_end, width):
 
     iteration_segments = []
     x_angle = find_angle_to_x([str_start, str_end])
@@ -89,15 +88,20 @@ def get_traffic_area_width(segm_gid, cursor):
             print("[!] NO WIDTH FOR SEGMENT ", segm_gid)
             return ec.NO_WIDTH
         else:
-            median_breite = median_breite[0]+ (0.75*median_breite[0])
+            median_breite = median_breite[0] + (0.75*median_breite[0])
             return median_breite
     else:
         return ec.MULTIPLE_TRAFFIC_AREAS
 
 
+def write_segmentation_values_to_DB(cursor, con, segment_id, segmentation_counter, width, start_lat, start_lon, end_lat, end_lon):
+    cursor.execute("""INSERT INTO segments_segmentation 
+                   VALUES (%s, %s, %s, %s, %s, %s, %s) """, (segment_id, segmentation_counter, width, start_lat, start_lon, end_lat, end_lon, ))
+    con.commit()
+                   
+
 # bbox = [start_left, end_left, end_right, start_right]
-def write_bboxes_to_DB(bboxes, cursor, segment_id, segmentation_number):
-    print("write iteration bboxes to DB")
+def write_iteration_boxes_to_DB(cursor, con, bboxes, segment_id, segmentation_number):
     for idx, bbox in enumerate(bboxes):
         left_coords = [bbox[0], bbox[1]]
         right_coords = [bbox[3], bbox[2]]
@@ -108,6 +112,29 @@ def write_bboxes_to_DB(bboxes, cursor, segment_id, segmentation_number):
         cursor.execute("""
                         INSERT INTO segments_segmentation_iteration
                         VALUES (%s, %s, %s, %s, %s)""", (segment_id, segmentation_number, idx, json.dumps(left_coords), json.dumps(right_coords), ))
+    con.commit()
+
+
+# function to extract the sides of the street for visualisation from the iteration boxes    
+# PARAMS
+#  iteration_boxes (list of bboxes);  bbox type = [start_left, end_left, end_right, start_right]
+def write_street_sides_to_DB(cursor, con, iteration_boxes, segment_id, segmentation_number):
+    start_left, end_left = iteration_boxes[0][0], iteration_boxes[-1][1]
+    start_right, end_right = iteration_boxes[0][3], iteration_boxes[-1][2]
+    
+    left_coords = [start_left, end_left]
+    right_coords = [start_right, end_right]
+    left_coords = [convert_coords("EPSG:25833", "EPSG:4326", coord[0], coord[1]) for coord in left_coords]
+    right_coords = [convert_coords("EPSG:25833", "EPSG:4326", coord[0], coord[1]) for coord in right_coords]
+    # try:
+    cursor.execute("""
+                INSERT INTO segments_segmentation_sides 
+                VALUES (%s, %s, %s, %s)""", (segment_id, segmentation_number, json.dumps(left_coords), json.dumps(right_coords), ))
+    con.commit()
+    # except Ee:
+    
+    #     return
+
     
 
 # for every segment in the segments table check, if the segment is sectioned into more than one piece (Len(coords) > 2) if yes => segment has a bend
@@ -122,7 +149,7 @@ def create_segmentation_and_iteration(db_config, db_user):
 
         for idx, res_item in enumerate(result):
             segment_id, segm_gid, geom_type, geom_coords = res_item[0], res_item[1], res_item[2], res_item[3]
-            print("segmentid", segment_id)
+            print("segment id", segment_id)
           
             # geom_type can be LineString or MultiLineString
             #TODO: Multilinestring
@@ -137,16 +164,15 @@ def create_segmentation_and_iteration(db_config, db_user):
                 if sorted_coords != []:
                     sorted_coords = [convert_coords("EPSG:4326", "EPSG:25833", pt[0], pt[1]) for pt in sorted_coords]
                 else:
-                    cursor.execute("""INSERT INTO segments_segmentation VALUES (%s, %s, %s, %s, %s, %s, %s) """, (segment_id, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING.  ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING, ))
-                    con.commit()
+                    write_segmentation_values_to_DB(cursor, con, segment_id, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING)
                     continue
 
                 width = get_traffic_area_width(segm_gid, cursor)
                 if width == ec.NO_WIDTH or width == ec.MULTIPLE_TRAFFIC_AREAS:
                         print("[!!] ERROR CODE: No width for segment or multiple traffic areas: ", segm_gid)
-                        cursor.execute("""INSERT INTO segments_segmentation VALUES (%s, %s, %s, %s, %s, %s) """, (segment_id, width,  width, width, width, width, ))
-                        con.commit()
+                        write_segmentation_values_to_DB(cursor, con, segment_id, width, width, width, width, width, width)
                         continue
+                
                 if width == 0:
                     print("[!] SKIP: No width information")
 
@@ -156,11 +182,10 @@ def create_segmentation_and_iteration(db_config, db_user):
                     segmentation_counter = 1
                     for i in range(0, len(sorted_coords)):
                         try:
-                            cursor.execute("""INSERT INTO segments_segmentation VALUES (%s, %s, %s, %s, %s, %s, %s) """, (segment_id, segmentation_counter, width, sorted_coords[i][0], sorted_coords[i][1], sorted_coords[i+1][0], sorted_coords[i+1][1], ))
-                            # add iteration boxes for each segmentation
-                            iteration_segments_bboxes = create_iteration_segments((sorted_coords[i][0], sorted_coords[i][1]), (sorted_coords[i+1][0], sorted_coords[i+1][1]), width)
-                            write_bboxes_to_DB(iteration_segments_bboxes,cursor, segment_id, segmentation_counter)
-                            con.commit()
+                            write_segmentation_values_to_DB(cursor, con, segment_id, segmentation_counter, width, sorted_coords[i][0], sorted_coords[i][1], sorted_coords[i+1][0], sorted_coords[i+1][1])
+                            iteration_segments_bboxes = create_iteration_boxes((sorted_coords[i][0], sorted_coords[i][1]), (sorted_coords[i+1][0], sorted_coords[i+1][1]), width)
+                            write_iteration_boxes_to_DB(cursor, con, iteration_segments_bboxes, segment_id, segmentation_counter)
+                            write_street_sides_to_DB(cursor, con, iteration_segments_bboxes, segment_id, segmentation_counter)
                             segmentation_counter += 1
 
                         except IndexError:
@@ -168,13 +193,10 @@ def create_segmentation_and_iteration(db_config, db_user):
                 # segment does not have bend
                 else:
                     segmentation_counter = 0 
-          
-                    #insert into DB
-                    cursor.execute("""INSERT INTO segments_segmentation VALUES (%s, %s, %s, %s, %s, %s, %s) """, (segment_id, segmentation_counter, width, sorted_coords[0][0], sorted_coords[0][1], sorted_coords[1][0], sorted_coords[1][1], ))
-                    # add iteration boxes for segment
-                    iteration_segments_bboxes = create_iteration_segments(sorted_coords[0], sorted_coords[1], width)
-                    write_bboxes_to_DB(iteration_segments_bboxes,cursor, segment_id, segmentation_counter)
-                    con.commit()
+                    write_segmentation_values_to_DB(cursor, con, segment_id, segmentation_counter, width, sorted_coords[0][0], sorted_coords[0][1], sorted_coords[1][0], sorted_coords[1][1])
+                    iteration_segments_bboxes = create_iteration_boxes(sorted_coords[0], sorted_coords[1], width)
+                    write_iteration_boxes_to_DB(cursor, con, iteration_segments_bboxes, segment_id, segmentation_counter)
+                    write_street_sides_to_DB(cursor, con, iteration_segments_bboxes, segment_id, segmentation_counter)
                   
 
 # add the geometries as PostGIS geometries
