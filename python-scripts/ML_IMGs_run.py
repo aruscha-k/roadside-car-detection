@@ -30,6 +30,7 @@ def add_image_to_list(img_folder, img_file, img_position_information, img_path_a
     else:
         print("[!!] invalid path", img_folder, img_file)
         log(img_type=img_type, logstart=log_start, logtime=datetime.now(), message= f"no file found for segment_id {segment_id}")
+        return img_path_and_position_list
 
 
 # get images and use ML detection on them to determine parking, possibility to submit a specific suburb
@@ -86,6 +87,7 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
                             for row in cyclo_rows:
                             
                                 recording_id = row[0]
+
                                 recording_lat, recording_lon = row[1], row[2]
                                 img_position_information = (recording_lat, recording_lon)
                         
@@ -103,13 +105,15 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
                             img_file = str(ot_name) + "_" +  str(segment_id)+ "_" + str(segmentation_number) + ".tif"
                             img_path_and_position_list = add_image_to_list(img_folder = AIR_CROPPED_ROTATED_FOLDER_PATH, img_file = img_file, img_position_information = img_position_information, img_path_and_position_list = img_path_and_position_list, img_type=img_type, log_start=log_start, segment_id=segment_id)
                             
-                        
+
+                        # if no images were found for segment, skip parking detection
                         if img_path_and_position_list == []:
                             print("No images for iteration")
                             log(img_type=img_type, logstart=log_start, logtime=datetime.now(), message=f"{segment_id}, {segmentation_number}: For segment_id and segmentation number there are no images to detect cars on.")
                             continue
                         
                         # get iteration step information; left_coordinates/right_coordinates = 2 coordpairs each
+                        # if not iteration information was found, skip parking detection
                         cursor.execute(""" SELECT iteration_number, left_coordinates, right_coordinates FROM segments_segmentation_iteration WHERE segment_id = %s AND segmentation_number = %s ORDER BY iteration_number ASC""", (segment_id, segmentation_number, ))
                         iteration_result_rows = cursor.fetchall()
                         if iteration_result_rows == []:
@@ -147,8 +151,8 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
 if __name__ == "__main__":
 
     db_config_path = os.path.join(RES_FOLDER_PATH, DB_CONFIG_FILE_NAME)
-    #run(db_config_path, DB_USER, [("Südvorstadt", 40)], img_type="cyclo", result_table_name="parking_cyclomedia")
-    run(db_config_path, DB_USER, [("Südvorstadt", 40)], img_type="air", result_table_name="parking_air")
+    run(db_config_path, DB_USER, [("Südvorstadt", 40)], img_type="cyclo", result_table_name="parking_cyclomedia")
+    #run(db_config_path, DB_USER, [("Südvorstadt", 40)], img_type="air", result_table_name="parking_air")
 
 
 #https://atlas.cyclomedia.com/PanoramaRendering/Render/WE4IK5SE/?apiKey=2_4lO_8ZuXEBuXY5m7oVWzE1KX41mvcd-PQZ2vElan85eLY9CPsdCLstCvYRWrQ5&srsName=epsg:55567837&direction=0&hfov=80
