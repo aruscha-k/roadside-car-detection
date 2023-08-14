@@ -236,6 +236,11 @@ def calculate_parking(predictions, img_type):
     for iteration_number in predictions.keys():
         print(predictions[iteration_number])
         parking_dict[iteration_number] = {}
+        # if no predictions were found in an iteration
+        if len(predictions[iteration_number]) == 0:
+            parking_dict[iteration_number]['left'] = (class_dict[-1], 100.00)
+            parking_dict[iteration_number]['right'] = (class_dict[-1], 100.00)
+            continue
 
         #METHOD TO ADD ONLY THE BEST DETECTION PERCENTAGE
         # most_common(1) chooses only the first most common item
@@ -321,7 +326,7 @@ def run_detection(img_path_and_position_list, img_type, iter_information_dict):
         left_rotated = rotate_image_and_boxes(img_file, all_left, -angle_degrees)
 
     for iteration_number, iteration_poly in iter_information_dict.items():
-        print("iter number and poly", iteration_number, iteration_poly)
+        #print("iter number and poly", iteration_number, iteration_poly)
         predictions[iteration_number] = {}
         
         if img_type == "cyclo":
