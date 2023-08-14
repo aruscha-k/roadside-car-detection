@@ -44,7 +44,7 @@
             {"name": "percentage", "type": "float8"}
         ],
         "constraints": {
-            "primaryKey": ["segment_id", "segmentation_number", "iteration_number"]
+            "primaryKey": ["segment_id", "segmentation_number", "iteration_number", "parking"]
         }
     },
     {
@@ -58,7 +58,7 @@
             {"name": "percentage", "type": "float8"}
         ],
         "constraints": {
-            "primaryKey": ["segment_id", "segmentation_number", "iteration_number"]
+            "primaryKey": ["segment_id", "segmentation_number", "iteration_number", "parking"]
         }
     },
     {
