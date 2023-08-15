@@ -65,13 +65,13 @@
         "name": "parking",
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
-            {"name": "iteration_number", "type": "int"},
+            {"name": "segmentation_number", "type": "int"},
             {"name": "parking", "type": "text"},
             {"name": "value", "type": "text"},
             {"name": "percentage", "type": "float8"}
         ],
         "constraints": {
-            "primaryKey": ["segment_id", "iteration_number", "parking"]
+            "primaryKey": ["segment_id", "segmentation_number", "parking"]
         }
     },
     {
