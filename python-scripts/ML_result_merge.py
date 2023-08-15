@@ -106,34 +106,53 @@ def compare_iteration_result_per_image_type(results_per_side):
 
 
 
+def calculate_average_percentage(result_list, parking_value):
+    percentage_list = [percentage for value, percentage in result_list if value == parking_value]
+    avg_percentage = sum(percentage_list) / len(percentage_list)
+    # print("avg_percentage", round(avg_percentage, 1))
+    return round(avg_percentage, 1)
+
 
 def compare_iteration_values(segmentation_result_dict, parking_side):
-    print(segmentation_result_dict)
-    results = []
+
+    iteration_comparison_results = []
+    # compare per iteration the "two images"
     for iteration_number, values in segmentation_result_dict.items():
-        print("in", parking_side, values[parking_side])
+        # print("in", parking_side, values[parking_side])
         parking_value, parking_percentage = compare_iteration_result_per_image_type(values[parking_side])
-        results.append((parking_value, parking_percentage))
+        iteration_comparison_results.append((parking_value, parking_percentage))
 
-    print(results)
-    counter = Counter([item[0] for item in results]).most_common(1)[0]
+    # print("results of comparison:", iteration_comparison_results)
 
-    most_common_item, most_common_count = counter.most_common(1)[0]
-    next_most_common_item, next_most_common_count = counter.most_common(2)[1]
+    # merge all iteration results to one big result for the whole segment
+    counter = Counter([item[0] for item in iteration_comparison_results])
+
+    most_common_parking_value, most_common_count = counter.most_common(1)[0]# show the most common item (1) (=tuple) and choose it ([0])
     next_most_common_count = counter.most_common(2)[1][1] if len(counter) > 1 else 0
-
     has_duplicates = most_common_count == next_most_common_count
 
     if not has_duplicates:
-        most_common_parking_value = Counter([item[0] for item in results]).most_common(1)[0]
-        return most_common_parking_value
+        avg_percentage = calculate_average_percentage(iteration_comparison_results, most_common_parking_value)
+        return most_common_parking_value, avg_percentage
     else:
+        print("HAS DUPLICATES")
+        # if there are values with the same number of counts, choose the one with the biggest percentage:
+        # get the values from result list and calculate the average percentage of the duplicate items, choose the item with the highest percentage
+        next_most_common_parking_value, next_most_common_count = counter.most_common(2)[1] #show the two most common items (2) (=tuples) and choose the second one of them ([1])
+        most_common_avg = calculate_average_percentage(iteration_comparison_results, most_common_parking_value)
+        next_most_common_avg = calculate_average_percentage(iteration_comparison_results, next_most_common_parking_value)
 
-        for item, count in duplicate_items.items():
-            print(f"Value: {item}, Count: {count}")
-    
-    
-
+        if most_common_avg > next_most_common_avg:
+            return most_common_parking_value, most_common_avg
+        elif next_most_common_avg > most_common_avg:
+            return next_most_common_parking_value, next_most_common_avg
+        
+        # if they have same avg percentage value, check if one of them is kein auto and if yes return the other
+        elif most_common_avg == next_most_common_avg:
+            if most_common_parking_value == "kein Auto":
+                return next_most_common_parking_value, next_most_common_avg
+            elif next_most_common_parking_value == "kein Auto":
+                return most_common_parking_value, most_common_avg
 
 
 
@@ -153,13 +172,13 @@ def run(db_config, db_user, suburb_list):
                 if merged_results != {}:
                     for segmentation_number in merged_results.keys():
         
-                        left_most_common_value = compare_iteration_values(merged_results[segmentation_number], 'left')
-                        #cursor.execute("""INSERT INTO parking VALUES (%s, %s, %s)""", (segment_id, "left", left_most_common_value))
+                        left_most_common_value, left_avg_percentage = compare_iteration_values(merged_results[segmentation_number], 'left')
+                        cursor.execute("""INSERT INTO parking VALUES (%s, %s, %s, %s, %s)""", (segment_id, segmentation_number, "left", left_most_common_value, left_avg_percentage, ))
 
-                        right_most_common_value = compare_iteration_values(merged_results[segmentation_number], 'right')
-                        #cursor.execute("""INSERT INTO parking VALUES (%s, %s, %s)""", (segment_id, "right", right_most_common_value))
+                        right_most_common_value, right_avg_percentage = compare_iteration_values(merged_results[segmentation_number], 'right')
+                        cursor.execute("""INSERT INTO parking VALUES (%s, %s, %s, %s, %s)""", (segment_id, segmentation_number, "right", right_most_common_value, right_avg_percentage))
             
-                        #     con.commit()
+                        con.commit()
 
                     print("RESULT--------->", {'segment_id': segment_id, 'left': left_most_common_value, 'right': right_most_common_value})
                 else:
