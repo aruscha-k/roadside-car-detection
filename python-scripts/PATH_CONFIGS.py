@@ -27,6 +27,14 @@ CYCLO_IMG_FOLDER_PATH = IMG_FOLDER_PATH + "cyclomedia/"
 if not os.path.exists(CYCLO_IMG_FOLDER_PATH):
     os.mkdir(CYCLO_IMG_FOLDER_PATH)
 
+CYCLO_90_IMG_FOLDER_PATH = IMG_FOLDER_PATH + "cyclomedia90/"
+if not os.path.exists(CYCLO_90_IMG_FOLDER_PATH):
+    os.mkdir(CYCLO_90_IMG_FOLDER_PATH)
+
+CYCLO_MINUS90_IMG_FOLDER_PATH = IMG_FOLDER_PATH + "cyclomedia-90/"
+if not os.path.exists(CYCLO_MINUS90_IMG_FOLDER_PATH):
+    os.mkdir(CYCLO_MINUS90_IMG_FOLDER_PATH)
+
 AIR_IMG_FOLDER_PATH = IMG_FOLDER_PATH + "air/"
 if not os.path.exists(AIR_IMG_FOLDER_PATH):
     os.mkdir(AIR_IMG_FOLDER_PATH)
