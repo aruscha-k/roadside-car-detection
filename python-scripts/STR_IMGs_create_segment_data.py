@@ -13,11 +13,13 @@ import math
 import psycopg2
 
 
-#helper: check if all entries in recording ID are just errors
+# helper-func: check if all entries in recording ID list are just errors, if yes return True
 def check_for_only_error_values(rec_IDs):
     rec_IDs_with_error = [item['recording_id'] for item in rec_IDs if item['recording_id'] == ec.CYCLO_NO_REC_ID_SINGLE]
     if len(rec_IDs_with_error) == len(rec_IDs):
         return True
+    else:
+        return False
 
 
 # iterate a segment or a segmented segment from start to end coordinate and get all cyclomedia recording IDs in between
@@ -97,8 +99,13 @@ def get_nearest_recordings_for_street_pts(str_start: tuple, str_end:tuple, shift
     return rec_IDs
 
 
-
-def get_image_IDs_from_cyclomedia(segment_id:int, segmentation_number:int, rec_IDs:list, slope_origin:float, y_angle:float, max_distance:int):
+# for a list of recording_IDs, call cyclomedia function to retrieve the corresponding image
+# PARAMS:
+#  slope_origin (float) the slope of the segment / street
+#  max_distance (float) a threshold value how far apart a recording point and the street point for which the recoridng point is are allowed to be apart
+#  y_angle (float) angle in degrees of the deviation from north direction
+#  folder dir (string) path to the folder to save the imgs in
+def get_image_IDs_from_cyclomedia(segment_id:int, segmentation_number:int, rec_IDs:list, slope_origin:float, max_distance:int, y_angle:float, folder_dir:str):
     print(f"[i] Getting image IDs and images from cyclo")
     if len(rec_IDs) == 0:
         return rec_IDs
@@ -106,9 +113,10 @@ def get_image_IDs_from_cyclomedia(segment_id:int, segmentation_number:int, rec_I
     # for the cyclomedia api the y_angle gives the deviation from north direction. for streets with falling slope
     # the y_angle is measured "on the other side" therefore it is not represention the deivation from north without adding 90
     if slope_origin < 0:
-        y_angle = (90-math.degrees(y_angle)) + 90
+        y_angle = (90-y_angle) + 90
     elif slope_origin > 0:
-        y_angle = math.degrees(y_angle)
+        y_angle = y_angle
+
     # for filesaving
     if segmentation_number < 10:
         segmentation_number = "0" + str(segmentation_number)
@@ -138,7 +146,7 @@ def get_image_IDs_from_cyclomedia(segment_id:int, segmentation_number:int, rec_I
             else:
 
                 img_file_name = str(segment_id) + "_" + str(segmentation_number) + "_" + str(item['recording_id']) + ".jpg"
-                with open(PATHS.CYCLO_IMG_FOLDER_PATH + img_file_name, 'wb') as file:
+                with open(folder_dir + img_file_name, 'wb') as file:
                     file.write(response.content)
             
         else:
@@ -150,6 +158,12 @@ def get_image_IDs_from_cyclomedia(segment_id:int, segmentation_number:int, rec_I
     return rec_IDs
 
 
+# after validating all recording IDs concerning distances and times, load the remaining rec IDs into the DB 
+# PARAMS: 
+#  rec_IDs (dict) of recording ID and information
+#  segment_id: the segment ID the information is for
+#  segmentation_number: the segmentation number of the segment
+#  connection: DB connection
 def load_into_db(rec_IDs, segment_id, segmentation_number, connection):
     print("[i] Load to DB")
     cursor = connection.cursor()
@@ -174,8 +188,11 @@ def load_into_db(rec_IDs, segment_id, segmentation_number, connection):
                 continue
 
 
-# # suburb_list = [(ot_name, ot_nr), ..], in this case ot_nr is not relevant and can be 0 all the time
-def get_cyclomedia_data(db_config, db_user, suburb_list):
+# main function to collect all data and get images from cyclomedia
+# PARAMS:
+#  suburb_list = [(ot_name, ot_nr), ..], in this case ot_nr is not relevant and can be 0 all the time
+#  get_sideways_imgs (bool) if for each recording point the sideways direction of 90/-90 should be extracted as well (takes 3 times longer)
+def get_cyclomedia_data(db_config, db_user, suburb_list, get_sideways_imgs):
     print("getting cyclomedia data...")
     with open_connection(db_config, db_user) as con:
 
@@ -240,13 +257,19 @@ def get_cyclomedia_data(db_config, db_user, suburb_list):
                         start_lat, start_lon = segmentation_result_rows[0][1], segmentation_result_rows[0][2]
                         end_lat, end_lon = segmentation_result_rows[0][3], segmentation_result_rows[0][4]
                         temp_coords = [(start_lat, start_lon), (end_lat, end_lon)]
-                        y_angle = find_angle_to_y(temp_coords)
+                        y_angle_radians = find_angle_to_y(temp_coords)
+                        y_angle_degrees = math.degrees(y_angle_radians)
                         slope_origin = calculate_slope(temp_coords)
 
                         rec_IDs = get_nearest_recordings_for_street_pts((start_lat, start_lon), (end_lat, end_lon), shift_length, slope_origin, [])
-                        rec_IDs = get_image_IDs_from_cyclomedia(segment_id, segmentation_number, rec_IDs, slope_origin, y_angle, 9)
-
+                        rec_IDs = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = rec_IDs, slope_origin = slope_origin, max_distance = 9, y_angle = y_angle_degrees, folder_dir=PATHS.CYCLO_IMG_FOLDER_PATH)
                         load_into_db(rec_IDs=rec_IDs, segment_id = segment_id, segmentation_number=segmentation_number, connection=con)
+
+                        if get_sideways_imgs:
+                            # right side??
+                            _ = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = rec_IDs, slope_origin = slope_origin, max_distance = 9, y_angle = (90 + y_angle_degrees), folder_dir=PATHS.CYCLO_90_IMG_FOLDER_PATH)
+                            # left side??
+                            _ = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = rec_IDs, slope_origin = slope_origin, max_distance = 9, y_angle = (-90 + y_angle_degrees), folder_dir=PATHS.CYCLO_MINUS90_IMG_FOLDER_PATH)
             
                     # segment is divided into smaller parts
                     elif len(segmentation_result_rows) > 1:
@@ -256,18 +279,25 @@ def get_cyclomedia_data(db_config, db_user, suburb_list):
                             start_lat, start_lon = segmentation_result_rows[idx][1], segmentation_result_rows[idx][2]
                             end_lat, end_lon = segmentation_result_rows[idx][3], segmentation_result_rows[idx][4]
                             temp_coords = [(start_lat, start_lon), (end_lat, end_lon)]
-                            y_angle = find_angle_to_y(temp_coords)
+                            y_angle_radians = find_angle_to_y(temp_coords)
+                            y_angle_degrees = math.degrees(y_angle_radians)
                             slope_origin = calculate_slope(temp_coords)
 
                             rec_IDs = get_nearest_recordings_for_street_pts((start_lat, start_lon), (end_lat, end_lon), shift_length, slope_origin, [])
-                            rec_IDs = get_image_IDs_from_cyclomedia(segment_id, segmentation_number, rec_IDs, slope_origin, y_angle, 9)
+                            rec_IDs = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = rec_IDs, slope_origin = slope_origin, max_distance = 9, y_angle = y_angle_radians, folder_dir=PATHS.CYCLO_IMG_FOLDER_PATH)
 
                             load_into_db(rec_IDs=rec_IDs, segment_id=segment_id, segmentation_number=segmentation_number, connection=con)
-                        
-                    #break
+
+                            if get_sideways_imgs:
+                                # right side??
+                                _ = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = rec_IDs, slope_origin = slope_origin, max_distance = 9, y_angle = (90 + y_angle_degrees), folder_dir=PATHS.CYCLO_90_IMG_FOLDER_PATH)
+                                # left side??
+                                _ = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = rec_IDs, slope_origin = slope_origin, max_distance = 9, y_angle = (-90 + y_angle_degrees), folder_dir=PATHS.CYCLO_MINUS90_IMG_FOLDER_PATH)
+
+
 
 
 if __name__ == "__main__":
     config_path = f'{RES_FOLDER_PATH}/{DB_CONFIG_FILE_NAME}'
                                                     #suburb list = tuple (sstr, int)
-    get_cyclomedia_data(config_path, PATHS.DB_USER, suburb_list=[("Südvorstadt", 70)])
+    get_cyclomedia_data(config_path, PATHS.DB_USER, suburb_list=[("Südvorstadt", 70)], get_sideways_imgs = False)
