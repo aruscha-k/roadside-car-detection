@@ -133,18 +133,16 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
                         parking_dict = run_detection(img_path_and_position_list, img_type, iter_information)
 
                         # write to DB # parking_dict = {iteration_number: {'left': (parking, percentage), 'right': (parking, percentage)}}
-                        # for iteration_number, value in parking_dict.items():
-                        #     for side, (parking, percentage) in value.items():
-                        #         try:
+                        for iteration_number, value in parking_dict.items():
+                            for side, (parking, percentage) in value.items():
+                                try:
+                                    cursor.execute("""INSERT INTO {} VALUES (%s, %s, %s, %s, %s, %s)""".format(result_table_name), (segment_id, segmentation_number, iteration_number, side, parking, percentage,))
+                                    con.commit()
                                    
-                        #             cursor.execute("""INSERT INTO {} VALUES (%s, %s, %s, %s, %s, %s)""".format(result_table_name), (segment_id, segmentation_number, iteration_number, side, parking, percentage,))
-                                   
-                        #         except psycopg2.errors.UniqueViolation as e:
-                        #             #print(e)
-                        #             con.rollback()
-                        #             continue
-                        #         con.commit()
-                        break
+                                except psycopg2.errors.UniqueViolation as e:
+                                    #print(e)
+                                    con.rollback()
+                                    continue
 
 
 
