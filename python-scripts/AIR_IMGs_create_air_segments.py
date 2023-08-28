@@ -1,8 +1,7 @@
 import ERROR_CODES as ec
 from DB_helpers import open_connection
-from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, AIR_CROPPED_ROTATED_FOLDER_PATH, DATASET_FOLDER_PATH, DB_USER
-from AIR_IMGs_process import get_rotation_angle_for_img, crop_and_rotate_geotiff
-from helpers_coordiantes import convert_coords
+from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, AIR_TEMP_CROPPED_FOLDER_PATH, DATASET_FOLDER_PATH, DB_USER
+from AIR_IMGs_process import cut_out_shape
 from helpers_geometry import calculate_bounding_box
 
 import json
@@ -42,13 +41,12 @@ def create_air_segments(db_config_path, db_user, suburb_list):
                     continue
 
                 # check if information is valid
-                segmentation_no = segmentation_result_rows[0][0]
+                segmentation_number = segmentation_result_rows[0][0]
                 if len(segmentation_result_rows) == 1:
-                    segmentation_no = segmentation_result_rows[0][0]
-                    if segmentation_no == ec.WRONG_COORD_SORTING:
+                    if segmentation_number == ec.WRONG_COORD_SORTING:
                         #TODO
                         # rec_IDs = [{'recording_id': ec.WRONG_COORD_SORTING, 'street_point': (0,0), 'recording_point': (0,0), 'recording_year': 0}]
-                        # load_into_db(rec_IDs=rec_IDs, segment_id=segment_id, segmentation_number=segmentation_no, connection=con)
+                        # load_into_db(rec_IDs=rec_IDs, segment_id=segment_id, segmentation_number=segmentation_number, connection=con)
                         print("[!] no segmentation information - SKIP")
                         continue
                
@@ -69,15 +67,20 @@ def create_air_segments(db_config_path, db_user, suburb_list):
                     start_lat, start_lon = segmentation_result_rows[0][2], segmentation_result_rows[0][3]
                     end_lat, end_lon = segmentation_result_rows[0][4], segmentation_result_rows[0][5]
                     temp_coords = [(start_lat, start_lon), (end_lat, end_lon)]
-                    segment_img_filename = str(ot_name) + "_" + str(segment_id) + "_" + str(segmentation_number) + ".tif"
+                    segment_img_filename = str(ot_name) + "_" + str(segment_id) + "_" + str(segmentation_number) 
 
                     # calculate the bounding box
                     #bbox = [start_left, end_left, end_right, start_right]
                     bbox = calculate_bounding_box(temp_coords, median_breite)
 
-                    rotation_angle = get_rotation_angle_for_img(temp_coords)
-                    cut_out_success = crop_and_rotate_geotiff(in_tif, segment_img_filename, bbox, rotation_angle)
-                    if not cut_out_success:
+                    out_tif = AIR_TEMP_CROPPED_FOLDER_PATH + segment_img_filename + ".tif"
+                    cut_out_success = cut_out_shape(bbox, out_tif, in_tif)
+                    
+                    if cut_out_success:
+                        cursor.execute("""INSERT INTO segments_air VALUES (%s, %s, %s, %s)""", (segment_id, segmentation_number, 0, json.dumps(bbox)), )
+                        con.commit()
+                    else:
+                        print("CUT OUT NOT POSSIBLE")
                         continue #TODO?
 
                 # segment is divided into smaller parts
@@ -87,16 +90,20 @@ def create_air_segments(db_config_path, db_user, suburb_list):
                         start_lat, start_lon = segmentation_result_rows[idx][2], segmentation_result_rows[idx][3]
                         end_lat, end_lon = segmentation_result_rows[idx][4], segmentation_result_rows[idx][5]
                     
-                        segment_img_filename = str(ot_name) + "_" + str(segment_id) + "_" + str(segmentation_number) + ".tif"
+                        segment_img_filename = str(ot_name) + "_" + str(segment_id) + "_" + str(segmentation_number)
             
                         temp_coords = [(start_lat, start_lon), (end_lat, end_lon)]
                         bbox = calculate_bounding_box(temp_coords, median_breite)
                     
-                        rotation_angle = get_rotation_angle_for_img(temp_coords)
-                        cut_out_success = crop_and_rotate_geotiff(in_tif, segment_img_filename, bbox, rotation_angle)
-                        if not cut_out_success:
-                            continue  #TODO?
-                 
+                        out_tif = AIR_TEMP_CROPPED_FOLDER_PATH + segment_img_filename + ".tif"
+                        cut_out_success = cut_out_shape(bbox, out_tif, in_tif)
+                        if cut_out_success:
+                            cursor.execute("""INSERT INTO segments_air VALUES (%s, %s, %s, %s)""", (segment_id, segmentation_number, 0, json.dumps(bbox)), )
+                            con.commit()
+                        else:
+                            print("CUT OUT NOT POSSIBLE")
+                            continue #TODO?
+                    
 
 if __name__ == "__main__":
     config_path = f'{RES_FOLDER_PATH}/{DB_CONFIG_FILE_NAME}'

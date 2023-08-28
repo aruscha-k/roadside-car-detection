@@ -10,10 +10,7 @@ from detectron2.config import get_cfg
 
 from PATH_CONFIGS import RES_FOLDER_PATH, CYCLO_DETECTION_MODEL, AIR_DETECTION_MODEL, CYCLO_IMG_FOLDER_PATH, AIR_CROPPED_ROTATED_FOLDER_PATH, AIR_TEMP_CROPPED_FOLDER_PATH
 from helpers_coordiantes import is_point_within_polygon
-from AIR_IMGs_process import get_coordinates_from_px, get_rotation_angle_for_img, draw_on_geotiff
-
-from matplotlib import pyplot as plt
-from matplotlib import patches
+from AIR_IMGs_process import transform_geotif_to_north, transform_coordinates_to_pixel, transform_points, is_car_within_polygon
 
 
 # JONAS trained net
@@ -44,26 +41,6 @@ def load_air_predictor():
     return predictor
 
 
-# OLD NET
-# def load_cyclo_predictor():
-
-#     cfg = get_cfg()
-#     cfg.merge_from_file(model_zoo.get_config_file("COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml"))
-#     cfg.DATASETS.TRAIN = ("test_set",)
-#     cfg.DATASETS.TEST = ()
-#     cfg.DATALOADER.NUM_WORKERS = 2
-#     cfg.SOLVER.IMS_PER_BATCH = 2
-#     cfg.SOLVER.BASE_LR = 0.0025  # pick a good LR
-#     cfg.SOLVER.MAX_ITER = 1500    # 300 iterations seems good enough for this toy dataset; you will need to train longer for a practical dataset
-#     cfg.SOLVER.STEPS = []        # do not decay learning rate
-#     cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 1500   # faster, and good enough for this toy dataset (default: 512)
-#     cfg.MODEL.ROI_HEADS.NUM_CLASSES = 3 
-#     cfg.MODEL.DEVICE = 'cpu'
-#     cfg.MODEL.WEIGHTS = os.path.join(RES_FOLDER_PATH, CYCLO_DETECTION_MODEL)  # path to the model we just trained
-#     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.90   # set a custom testing threshold
-#     predictor = DefaultPredictor(cfg)
-#     return predictor
-
 def load_cyclo_predictor():
     cfg = get_cfg()
     cfg.merge_from_file(model_zoo.get_config_file("COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml"))
@@ -84,9 +61,17 @@ def load_cyclo_predictor():
     return predictor
 
 
+#TODO check visually!
 def remove_unparked_cars_for_air(instances):
-    # cluster the instances on their x cooridinates and remove the outliers, there should be two clusters
-    # one cluster for each side of the street. the outliers are cars that are not parked
+    """ cluster the instances on their x cooridinates and remove the outliers, there should be two clusters, one cluster for each side of the street. the outliers are cars that are not parked
+
+    Args:
+        instances (np array): return of detectron
+
+    Returns:
+        instances (np array): filtered instances without "driving" cars
+    """
+
     centers = instances.pred_boxes.get_centers().cpu().numpy()
 
     # Cluster the x-coordinates using K-means
@@ -113,77 +98,35 @@ def remove_unparked_cars_for_air(instances):
     return instances
 
 
-# takes the rotated image and recalculates the detected bounding boxes for the unrotated image
-# PARAMS:
-#  img_filename: the img_filename
-#  angle_degrees: the rotation angle of the rotated image in degrees
-#  boxes_and_classes: the detected boxes and corresponding detected class
-# RETURNS:
-#  box_center_and_class (list) of tuples ((boxcenter1, boxcenter2), class)
-def rotate_image_and_boxes(img_filename, boxes_and_classes, angle_degrees):
+def transform_air_img(img_file, img_bbox, out_file_type):
+    """ method to run all methods to transform a tif file towards the north direction with perspective trasnform
 
-    north_rotated_image = cv2.imread(os.path.join(AIR_CROPPED_ROTATED_FOLDER_PATH, img_filename))
-    cropped_out_image = cv2.imread(os.path.join(AIR_TEMP_CROPPED_FOLDER_PATH, img_filename))
-    height, width = cropped_out_image.shape[:2]
-    center = (width / 2, height / 2)
-    
-    rotation_matrix = cv2.getRotationMatrix2D(center, angle_degrees, 1.0)
-    # Apply rotation to the image
-    rotated_image = cv2.warpAffine(north_rotated_image, rotation_matrix, (width, height))
+    Args:
+        img_file (string): file path of in image, ! with extension
+        img_bbox (list): of corner points of street segment
+        out_file_type (string): ".jpg" / ".tif"
 
-    # Rotate bounding box coordinates
-    rotated_boxes_and_classes = []
-    box_center_and_class = []
-    boxes_px = [] #for debugging  
-    for box, pred_class in boxes_and_classes:
-
-        upper_left_x, upper_left_y = box[0], box[1]
-        lower_right_x, lower_right_y = box[2], box[3]
-        #assign new:
-        upper_right_x, upper_right_y = box[2], box[1]
-        lower_left_x, lower_left_y = box[0], box[3]
-
-       # Append 1 to the coordinates to convert them into homogeneous coordinates (x, y, 1)
-        upper_left_homogeneous = np.array([upper_left_x, upper_left_y, 1])
-        lower_right_homogeneous = np.array([lower_right_x, lower_right_y, 1])
-        upper_right_homogeneous = np.array([upper_right_x, upper_right_y, 1])
-        lower_left_homogeneous = np.array([lower_left_x, lower_left_y, 1])
-        
-        # Transform the points using the 2x3 rotation matrix
-        upper_left_rotated = np.dot(rotation_matrix, upper_left_homogeneous)
-        lower_right_rotated = np.dot(rotation_matrix, lower_right_homogeneous)
-        upper_right_rotated = np.dot(rotation_matrix, upper_right_homogeneous)
-        lower_left_rotated = np.dot(rotation_matrix, lower_left_homogeneous)
-
-        # Append the transformed points to the rotated_boxes list (upper_left is now rotated and is in bottom right corner)
-        rotated_boxes_and_classes.append(([(upper_left_rotated[0], upper_left_rotated[1]), (upper_right_rotated[0], upper_right_rotated[1]), (lower_right_rotated[0], lower_right_rotated[1]), (lower_left_rotated[0], lower_left_rotated[1])], pred_class))
-        box_center = ((upper_left_rotated[0] + lower_right_rotated[0]) / 2, (upper_left_rotated[1] + lower_right_rotated[1]) / 2)
-        boxes_px.append(box_center)
-
-        
-        # read the original geotif and extract the underlying coordinates from the pixel values
-        center_lon, center_lat = get_coordinates_from_px(os.path.join(AIR_TEMP_CROPPED_FOLDER_PATH, img_filename), box_center[0], box_center[1])
-        box_center_and_class.append(((center_lon, center_lat), pred_class))
-    
-
-    # -- FOR DEBUGGING --
-    
-    
-    #print("Shape of second rotated image: ", rotated_image.shape)
-    fig, ax = plt.subplots()
-    im = ax.imshow(rotated_image)
-    #for box, p_class in rotated_boxes:
-    for pt in boxes_px:
-        #rect = patches.Polygon(box, closed=True, edgecolor='r', linewidth=2)
-        #ax.add_patch(rect)
-        ax.plot(pt[0], pt[1], 'ro')
-    plt.show()
-    # -- END --
-    print("box centers and classes: ", box_center_and_class)
-    return box_center_and_class
+    Returns:
+        transform_matrix (matrix) transform matrix of perspective transform
+        tiff_matrix (matrix): transform matrix of tif (coordinates <> px)
+        out_file (string): filepath of output file
+    """
+    img_file_name = img_file[:-4]
+    in_tif = AIR_TEMP_CROPPED_FOLDER_PATH + img_file_name + ".tif"
+    out_file = AIR_CROPPED_ROTATED_FOLDER_PATH + img_file_name + out_file_type
+    transform_matrix, tiff_matrix = transform_geotif_to_north(in_tif= in_tif, out_file= out_file, out_file_type = out_file_type, bbox = img_bbox)
+    return transform_matrix, tiff_matrix, out_file
 
 
 def add_no_detection_area_for_cyclo(im):
+    """ method to add a black triangle in the middle of the image, kind of the viewing range of the driving car to rule out driving cars in front of the car
+
+    Args:
+        im (numpy array): cv2 image
+
+    Returns:
+        im (numpy array): cv2 image with black triangle
+    """
     im_width = im.shape[1]
     im_height = im.shape[0]
     
@@ -201,9 +144,17 @@ def add_no_detection_area_for_cyclo(im):
     return im
 
 
-# function to detect midpoint of image and assign bboxes to left or right side depending on their positions in regard to the midpoint
-# RETURNS: left / right (list of tuples (bbox, class)
 def assign_left_right(im, boxes, classes):
+    """ function uses the midpoint of image (x axis) and assign bboxes to left or right side depending on their positions in regard to the midpoint
+
+    Args:
+        im (np array): open cv image
+        boxes (list of np array): list of all predicted boxes in image
+        classes (list): list of all predicted classes (index corresponding to boxes)
+
+    Returns:
+        list, list: lists of (box, class) tuple is on which parking side
+    """
     left, right = [], []
     if len(boxes) == 0:
         return left, right
@@ -222,10 +173,16 @@ def assign_left_right(im, boxes, classes):
     return left, right
 
 
-# for all the predicted classes, calculate for each iteration, which predicted class was most often and calculate its percentage of all items in the predictions
-# predictions = {iteration_number: {'left': [0, 0, 0, 0, -1], 'right': [0, 1, 0, 0]}
 def calculate_parking(predictions, img_type):
-   
+    """ for all the predicted classes, calculate for each iteration, which predicted class was most often and calculate its percentage of all items in the predictions
+
+    Args:
+        predictions (dict): key = iteration number, value = dict: key = parking side, value = all predictions (list) e.g.  {iteration_number: {'left': [0, 0, 0, 0, -1], 'right': [0, 1, 0, 0]}
+        img_type (string): "air" / "cyclo"
+
+    Returns:
+        dict: key = iteration_number, 2nd key = parking side value = (parking value, percentage) e.g. parking_dict[iteration_number]['right'] = (class_dict[class_right_most_common], round(right_percentage,2))
+    """
     parking_dict = dict()
 
     if img_type == "cyclo":
@@ -234,15 +191,16 @@ def calculate_parking(predictions, img_type):
         class_dict = {0: 'parallel', 1: 'diagonal/senkrecht', -1: 'kein Auto'}
 
     for iteration_number in predictions.keys():
-        print(predictions[iteration_number])
+        # print(predictions[iteration_number])
         parking_dict[iteration_number] = {}
+
         # if no predictions were found in an iteration
         if len(predictions[iteration_number]) == 0:
             parking_dict[iteration_number]['left'] = (class_dict[-1], 100.00)
             parking_dict[iteration_number]['right'] = (class_dict[-1], 100.00)
             continue
 
-        #METHOD TO ADD ONLY THE BEST DETECTION PERCENTAGE
+        # METHOD TO ADD ONLY THE BEST DETECTION PERCENTAGE
         # most_common(1) chooses only the first most common item
         left_counts = Counter(predictions[iteration_number]['left'])  # returns Counter object of Counter({class: count, ...})
         right_counts = Counter(predictions[iteration_number]['right'])
@@ -257,43 +215,20 @@ def calculate_parking(predictions, img_type):
         right_percentage = counts_right_most_common / len(predictions[iteration_number]['right'])*100
         parking_dict[iteration_number]['right'] = (class_dict[class_right_most_common], round(right_percentage,2))
 
-
-    # METHOD TO ADD ALL DETECTION PERCENTAGES
-    # full_percentage = 100
-    # for i in range(0,3):
-    #     num_left_most_common = Counter(all_left).most_common(i+1)[i][1]
-    #     class_left_most_common = Counter(all_left).most_common(i+1)[i][0]
-    #     left_percentage = num_left_most_common/len(all_left)*100
-    #     full_percentage = full_percentage - left_percentage
-    #     parking_dict['left'].append((class_dict[class_left_most_common], round(left_percentage,2)))
-
-    #     #print(f"left: {i+1}. run")
-    #     #print(f"Class: {class_dict[class_left_most_common]} dominates {round(left_percentage,2)} % on left side.")
-    #     if left_percentage >= 51 or full_percentage <= 25:
-    #         break
-    
-    # full_percentage = 100
-    # for i in range(0,3):
-        
-    #     num_right_most_common = Counter(all_right).most_common(i+1)[i][1]
-    #     class_right_most_common = Counter(all_right).most_common(i+1)[i][0]
-    #     right_percentage = num_right_most_common / len(all_right)*100
-    #     full_percentage = full_percentage - right_percentage
-    #     parking_dict['right'].append((class_dict[class_right_most_common], round(right_percentage,2)))
-        
-    #     #print(f"right: {i+1}. run")
-    #     #print(f"Class: {class_dict[class_right_most_common]} dominates {round(right_percentage,2)} % on right side.")
-    #     if right_percentage >= 51 or full_percentage <= 25:
-    #         break
-
     return parking_dict
 
 
-# PARAMS
-# img_path_and_position_list = (imgpath, (recording_lat, recording_lon))
-# img_type (string) "air"/"cyclo" depending on the input image
-# iter_information_dict (dict) key = iteration_number, value = iteration_poly (bbox)
 def run_detection(img_path_and_position_list, img_type, iter_information_dict):
+    """ run method: for one street segment, use all images to detect parking situation on
+
+    Args:
+        img_path_and_position_list (list): containing the path to image and a position information for cyclo: (imgpath, (recording_lat, recording_lon)), for air: (imgpath, segment_bbox)
+        img_type (string): "air" / "cyclo"
+        iter_information_dict (dict): key = iteration_number, value = iteration_poly (bbox)
+
+    Returns:
+        dict: key = iteration_number, 2nd key = parking side value = (parking value, percentage) e.g. parking_dict[iteration_number]['right'] = (class_dict[class_right_most_common], round(right_percentage,2))
+    """
     print("[i] Running parking detection")
 
     if img_type == "air":
@@ -305,26 +240,23 @@ def run_detection(img_path_and_position_list, img_type, iter_information_dict):
 
     predictions = dict()
 
-    # open segmented image and find detections. rotate image back and assign detection to the left and right side.
     if img_type == "air":
-        img_file = img_path_and_position_list[0][0]
-        str_pts = img_path_and_position_list[0][1]
-        #print("Shape of cut out image from geotif: ", cv2.imread(os.path.join(AIR_TEMP_CROPPED_FOLDER_PATH, img_file)).shape)
-        cropped_rotated_img = cv2.imread(os.path.join(AIR_CROPPED_ROTATED_FOLDER_PATH, img_file))
-        angle_degrees = get_rotation_angle_for_img(str_pts=str_pts)
+        img_file_name = img_path_and_position_list[0][0]
+        bbox = img_path_and_position_list[0][1]
+
+        transform_matrix, tiff_matrix, out_img_path = transform_air_img(img_file_name, bbox, out_file_type=".tif")
+        cropped_rotated_img = cv2.imread(out_img_path)
         outputs = predictor(cropped_rotated_img)
         instances = outputs["instances"].to("cpu")
         
         if len(instances) > 2:
             instances = remove_unparked_cars_for_air(instances)
 
-        visualize_prediction(os.path.join(AIR_CROPPED_ROTATED_FOLDER_PATH, img_file), "air")
+        visualize_prediction(out_img_path, "air")
         bboxes = instances.pred_boxes.tensor.cpu().numpy()
         classes = instances.pred_classes.cpu().numpy()
-        all_left, all_right = assign_left_right(cropped_rotated_img, bboxes, classes)
-        right_rotated = rotate_image_and_boxes(img_file, all_right, -angle_degrees)
-        left_rotated = rotate_image_and_boxes(img_file, all_left, -angle_degrees)
-
+        
+    # go through each iteration
     for iteration_number, iteration_poly in iter_information_dict.items():
         #print("iter number and poly", iteration_number, iteration_poly)
         predictions[iteration_number] = {}
@@ -348,51 +280,40 @@ def run_detection(img_path_and_position_list, img_type, iter_information_dict):
                     predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = 'right', predicted_classes_for_side = [item[1] for item in im_right], predictions = predictions[iteration_number])
 
         if img_type == "air":
-            #check which detected bboxes => centerpoints lie within the current iteration window
-            draw_on_geotiff("Right", os.path.join(AIR_TEMP_CROPPED_FOLDER_PATH, img_file), right_rotated, iteration_poly)
-            print("right")
-            right = [pred_class for center, pred_class in right_rotated if is_point_within_polygon(center, iteration_poly)]
+            px_bbox = transform_coordinates_to_pixel(iteration_poly, tiff_matrix)
+            transformed_poly_points = transform_points(px_bbox, transform_matrix).astype(np.int32)
+            transformed_poly_points = list(transformed_poly_points.reshape(4,2))
 
-            draw_on_geotiff("Left", os.path.join(AIR_TEMP_CROPPED_FOLDER_PATH, img_file), left_rotated, iteration_poly)
-            print("left")
-            left = [pred_class for center, pred_class in left_rotated if is_point_within_polygon(center, iteration_poly)]
+            # assign all of the detected car boxes to a side
+            all_left, all_right = assign_left_right(cropped_rotated_img, bboxes, classes)
+      
+            #check which of the boxes lie within centerpoints lie within the current iteration window
+            right = [pred_class for box, pred_class in all_right if is_car_within_polygon(box, transformed_poly_points)]
+            left = [pred_class for box, pred_class in all_left if is_car_within_polygon(box, transformed_poly_points)]
+
+            # [!] if you wanna draw assigned classes, change above to left = [(box, pred_class)  ....
+            # draw_assigned_classes(left, right, transformed_poly_points, out_img_path)
 
             predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = "left", predicted_classes_for_side = left, predictions = predictions[iteration_number])
             predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = "right", predicted_classes_for_side = right, predictions = predictions[iteration_number])
-                 
-
-        # add side-assigned predictions classes to predictions dict; add [-1] if no cars were detected for a side/iteration window #TODO check if function assign_predictions_to_side_and_iteration workd for air then delete this
-        # ONLY adds predicted class, not box
-        # if 'left' in predictions[iteration_number].keys():
-        #     if len(left) == 0:
-        #         predictions[iteration_number]['left'].append(-1)
-        #     else:
-        #         predictions[iteration_number]['left'].append(left)
-        # else: 
-        # if len(left) == 0:
-        #     predictions[iteration_number]['left'] = [-1]
-        # else:
-        #     predictions[iteration_number]['left'] = left
-        # if 'right' in predictions[iteration_number].keys():
-        #     if len(right) == 0:
-        #         predictions[iteration_number]['right'].append(([], -1))
-        #     else:
-        #         predictions[iteration_number]['right'].append(right)
-        # else:
-        #     if len(right) == 0:
-        #         predictions[iteration_number]['right'] = [([], -1)]
-        #     else:
-        #         predictions[iteration_number]['right'] = right
-            
+                             
     # for all predictions, calculate the parking
     parking_dict =  calculate_parking(predictions, img_type)
-    print("parking_dict:", parking_dict)      
+
     return parking_dict
 
-# side = "left" / "right"
-# predicted_classes_for_side (list of predicted classes)
-# predictions = dict of collected predictions per iteration => predictions[iteration_number]
+
 def assign_predictions_to_side_and_iteration(side, predicted_classes_for_side, predictions):
+    """ method to add prediction per image to side and iteration per iteration
+
+    Args:
+        side (string): parkign side "left" / "right"
+        predicted_classes_for_side (list): list of predicted classes
+        predictions (dict): dict of collected predictions per iteration => predictions[iteration_number]
+
+    Returns:
+        dict: extended dict with the new info from this iteration
+    """
     
     if side in predictions.keys():
         if len(predicted_classes_for_side) == 0:
@@ -406,6 +327,7 @@ def assign_predictions_to_side_and_iteration(side, predicted_classes_for_side, p
             predictions[side] = predicted_classes_for_side
     #print(predictions)
     return predictions
+
 
 # -------- for debug only ----------------
 # visualize prediction for 1 image
@@ -428,7 +350,42 @@ def visualize_prediction(filename, img_type):
     cv2.imshow('Prediction', out.get_image()[:, :, ::-1])
     cv2.waitKey(0)
 
-# if __name__ == "__main__":
-    
 
+
+def draw_assigned_classes(left, right, poly, img_path):
+    from PIL import Image
+    from matplotlib import pyplot as plt 
+
+    image = Image.open(img_path)
+
+    # Create a figure and axis
+    fig, ax = plt.subplots()
+
+    # Display the image
+    ax.imshow(image)
+
+    for pt in poly:
+        ax.plot(pt[0], pt[1], "ro")
+
+    for rect, pclass in right: 
+        rect = rect.tolist()
+        
+        width = rect[2] - rect[0]
+        height = rect[3] - rect[1] 
+        midpoint_bbox = (rect[0] + (width / 2), rect[1] + (height / 2))
+        ax.plot(midpoint_bbox[0], midpoint_bbox[1], color='green', marker='o')
+
+    for rect, pclass in left: 
+        rect = rect.tolist()
+        width = rect[2] - rect[0]
+        height = rect[3] - rect[1] 
+        midpoint_bbox = (rect[0] + (width / 2), rect[1] + (height / 2))
+        ax.plot(midpoint_bbox[0], midpoint_bbox[1], color='yellow', marker='o')
+
+    # Show the plot
+    plt.show()
+
+
+
+# if __name__ == "__main__":
 #     visualize_prediction()

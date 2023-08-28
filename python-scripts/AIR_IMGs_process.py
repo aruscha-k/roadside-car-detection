@@ -1,49 +1,169 @@
-from PIL import Image
 import rasterio
 import rasterio.mask
-from rasterio.transform import Affine
 import cv2
 
 import numpy as np
 import folium
-import math 
-from shapely import geometry
-from matplotlib import pyplot as plt
-from matplotlib import patches
-
-import PATH_CONFIGS as PATHS
-from helpers_geometry import find_angle_to_x, calculate_start_end_pt
-
-                # lat, #lon
-                #316823.5441658454 5688228.192294073
-test_str_start = (51.3158290612, 12.3714331051)
+from shapely.geometry import Point, Polygon
 
 
-# method calculates the rotation angle, the image has to be rotated with, 
-# to contain an image that is leading in the direction of north
-# PARAMS: str_pts (list) of 2 street points
-# rotation_angle (float) angle in degrees
-def get_rotation_angle_for_img(str_pts):
-    x_angle = find_angle_to_x(str_pts)
+def load_tiff(geotiff_path):
+    """load a geotif
 
-    if abs(math.degrees(x_angle)) <= 45:
-        rotation_angle = 90 - math.degrees(x_angle)
-        if math.degrees(x_angle) < 0:
-            rotation_angle = 90 + abs(math.degrees(x_angle))
-    elif abs(math.degrees(x_angle)) > 45:
-        rotation_angle = 90 - math.degrees(x_angle)
-        if math.degrees(x_angle) < 0:
-            rotation_angle = 90 + abs(math.degrees(x_angle))
+    Args:
+        geotiff_path (string): filepath
 
-    return rotation_angle
+    Returns:
+        rgba_image: np array of image
+        transform: the matrix of the geotif with information to transform px <-> coordinates
+    """
+    
+    with rasterio.open(geotiff_path) as dataset:
+        transform = dataset.transform
+        meta = dataset.meta
+
+        red_band = dataset.read(1)
+        green_band = dataset.read(2)
+        blue_band = dataset.read(3)
+        alpha = dataset.read(4)
+        rgba_image = np.dstack((blue_band, green_band, red_band, alpha))
+        
+    return rgba_image, transform, meta
 
 
-# method to cut out the calculated shape from the GEOTIF and saves the cutout img as file
-# bbox has to be a closed shape!
-# return True if successfull, else False
+def get_perspective_transform(image, corners):
+    """ for an image / its corner points get the transformation matrix the new width and height
+
+    Args:
+        image (tiff image): 
+        corners (list): of points of street segment in ordner for transform
+
+    Returns:
+        matrix: for perspective transform (to transform pts etc)
+        widh, height: new width height for image
+    """
+    top_l, top_r, bottom_r, bottom_l = corners
+
+    width_A = np.sqrt(((bottom_r[0] - bottom_l[0]) ** 2) + ((bottom_r[1] - bottom_l[1]) ** 2))
+    width_B = np.sqrt(((top_r[0] - top_l[0]) ** 2) + ((top_r[1] - top_l[1]) ** 2))
+    width = max(int(width_A), int(width_B))
+
+    height_A = np.sqrt(((top_r[0] - bottom_r[0]) ** 2) + ((top_r[1] - bottom_r[1]) ** 2))
+    height_B = np.sqrt(((top_l[0] - bottom_l[0]) ** 2) + ((top_l[1] - bottom_l[1]) ** 2))
+    height = max(int(height_A), int(height_B))
+
+    dimensions = np.array([[0, 0], [width - 1, 0], [width - 1, height - 1], [0, height - 1]], dtype="float32")
+    
+    corners = np.array(corners, dtype="float32")
+    matrix = cv2.getPerspectiveTransform(np.array(corners, dtype="float32"), dimensions) # dimensions = dst
+
+    return matrix, width, height
+
+
+def sort_corners_for_transform(bbox):
+    """ sort the corners of the bounding box of the geotif so that they are in the right order for perspective transform
+        transform needs clockwise alignment of corners, starting in top left 
+
+    Args:
+        bbox (list): of points of street segment, bbox = [start_left, end_left, end_right, start_right]
+
+    Returns:
+        list: ordered points for perspective transform
+    """
+    top_l, top_r, bottom_r, bottom_l = bbox[1], bbox[2], bbox[3], bbox[0]
+    return (top_l, top_r, bottom_r, bottom_l)
+
+
+def transform_coordinates_to_pixel(coordinates, matrix):
+    """ for geotif transform the coordinate values to px values
+
+    Args:
+        coordinates (list): list of tuples of coordiante point
+        matrix (transformation matrix): of geotif
+
+    Returns:
+        list: of points in px
+    """
+    pixel_coordinates = [rasterio.transform.rowcol(matrix, coord[0], coord[1]) for coord in coordinates]
+    return [[point[1], point[0]] for point in pixel_coordinates]
+
+
+def transform_points(points, matrix):
+    """ transform any point that lies within an image wit hthe same matrix as the one the images was transformed with
+
+    Args:
+        points (tuple): points to transform
+        matrix (array): matrix to transform the points with
+
+    Returns:
+        tuple: transformed points
+    """
+    points = np.array(points, dtype="float32")
+    transformed_points = cv2.perspectiveTransform(points.reshape(-1, 1, 2), matrix)
+    return transformed_points
+
+
+def transform_geotif_to_north(in_tif, out_file, out_file_type, bbox):
+    """ transforms input geotif so that it "points towards north" and writes the image to disk
+
+    Args:
+        in_tif (string): filepath of cropped out street segment from district geotif
+        out_file (string): filepath for output image save without file typ
+        out_file_type (string): filetype for out_file - can be ".tif" or ".jpg"
+        bbox (_type_): the bbox of the street segment, with points ordered like [start_left, end_left, end_right, start_right]
+
+    Returns:
+        transform_matrix: matrix of the perspective transform
+        tiff_matrix: matrix of the geotif pixel to coordinates transform
+    """
+    img, tiff_matrix, meta = load_tiff(in_tif)
+    pixel_bbox = transform_coordinates_to_pixel(bbox, tiff_matrix)
+    corners = sort_corners_for_transform(pixel_bbox)
+    transform_matrix, w, h = get_perspective_transform(img, corners)
+    transformed_image = cv2.warpPerspective(img, transform_matrix, (w, h))
+    
+    out_file = out_file + out_file_type
+    if out_file_type == ".tif":
+        save_transformed_tiff(transformed_image, out_file, meta)
+
+    elif out_file_type == ".jpg":
+        cv2.imwrite(out_file, transformed_image)
+
+    return transform_matrix, tiff_matrix
+
+
+def save_transformed_tiff(opencv_image, out_file, meta):
+    """ take a numpy image array and save it as tiff
+
+    Args:
+        opencv_image (np array): image
+        out_file (string): output tif filepath
+        meta (?): meta information of tif like transform etc [!!!!!!] THIS WILL BE WRONG SINCE IT WAS NOT TRANSFORMED
+    """
+    out_meta = meta.copy()
+    img = cv2.cvtColor(opencv_image.copy(), cv2.COLOR_RGB2BGRA)
+    out_meta.update({"driver": "GTiff",
+                    "height": img .shape[0],
+                    "width": img .shape[1],
+                    "count": img .shape[2]})
+
+    with rasterio.open(out_file, "w", **out_meta) as dest:
+        data = np.moveaxis(img, -1, 0)
+        dest.write(data)
+
+
 def cut_out_shape(bbox, out_tif, in_tif):
+    """ method to cut out the calculated shape from the GEOTIF and saves the cutout img as file
 
-    poly = geometry.Polygon(bbox)
+    Args:
+        bbox (list): of bbox to cut out street segment; bbox has to be a closed shape
+        out_tif (string): filepath
+        in_tif (string): filepath
+
+    Returns:
+        bool: return True, if cut out was successful, else False
+    """
+    poly = Polygon(bbox)
     with rasterio.open(in_tif) as src:
         try:
             out_image, out_transform = rasterio.mask.mask(src, [poly], crop=True)
@@ -62,116 +182,25 @@ def cut_out_shape(bbox, out_tif, in_tif):
     return True
 
 
-# calculate lon, lat coordinates from pixel coordinates
-# PARAMS:
-#  img_path: path to the GEOTIFF
-#  x,y : pixel values to get lon, lat values for
-# RETURNS:
-#  lon, lat values
-def get_coordinates_from_px(img_path, x, y):
-    with rasterio.open(img_path) as src:
-        data = src.read()
-        # Get the geotransform parameters
-        transform = src.transform
-        # Apply the geotransform to get the geospatial coordinates from pixel values (row = y, columns = x)
-        lon, lat = transform * (x, y)
+def is_car_within_polygon(car_bbox, polygon_coordinates):
+    """ for air images calculate if a car (bbox) lies within the iteration poly
 
-    return lon, lat
+    Args:
+        car_bbox (np array): detection bbox of 1 car
+        polygon_coordinates (list): of iteration poly points
 
+    Returns:
+        bools: True if point in polygon, else False
+    """
+    car_bbox = car_bbox.tolist()
+    width = car_bbox[2] - car_bbox[0]
+    height = car_bbox[3] - car_bbox[1] 
+    midpoint_bbox = (car_bbox[0] + (width / 2), car_bbox[1] + (height / 2))
+    point = Point(midpoint_bbox)
+    polygon = Polygon(polygon_coordinates)
+    #print(f"point lies within: {polygon.contains(point)} ")
     
-def crop_and_rotate_geotiff(input_file, output_file, bbox, rotation_angle):
-    was_success = True
-    # Open the input GeoTIFF
-    with rasterio.open(input_file) as src:
-        # Define the geometry and transform for the cropping operation
-        poly = geometry.Polygon(bbox)
-        transform = src.transform
-
-        # Perform the crop; check for value error. can occur, when Streets overlap two districts
-        try:
-            cropped, out_transform = rasterio.mask.mask(src, [poly], crop=True)
-        except ValueError:
-            print("[!] Input shapes do not overlap raster.")
-            was_success = False
-            return was_success
-
-         # Save the cropped GeoTIFF (Optional)
-        cropped_meta = src.meta.copy()
-        cropped_meta.update({"driver": "GTiff",
-                             "height": cropped.shape[1],
-                             "width": cropped.shape[2],
-                             "transform": out_transform})
-
-        # Specify the output file for the cropped image
-        cropped_output_file = PATHS.AIR_TEMP_CROPPED_FOLDER_PATH + output_file
-
-        with rasterio.open(cropped_output_file, "w", **cropped_meta) as cropped_dest:
-            cropped_dest.write(cropped)
-
-        # Rotate the cropped image by the specified angle
-        # Convert the cropped image to a PIL Image object
-        cropped_image = Image.fromarray(cropped.transpose(1, 2, 0)) 
-
-        # Rotate the cropped image by the specified angle
-        rotated_image = rotate_with_matrix(cropped_image, rotation_angle)
-        #rotated_image = rotate_img(cropped_image, rotation_angle)
-
-        # Convert the rotated image back to a numpy array
-        rotated_image = np.array(rotated_image).transpose(2, 0, 1)
-
-
-        # Update the transformation matrix to include rotation
-        rotation_transform = Affine.rotation(rotation_angle)
-        updated_transform = rotation_transform * out_transform
-
-        # Update the metadata for the rotated GeoTIFF
-        out_meta = src.meta.copy()
-        out_meta.update({"driver": "GTiff",
-                         "height": rotated_image.shape[1],
-                         "width": rotated_image.shape[2],
-                         "transform": updated_transform})
-
-        rotated_output_file = PATHS.AIR_CROPPED_ROTATED_FOLDER_PATH + output_file
-        # Save the rotated GeoTIFF
-        with rasterio.open(rotated_output_file, "w", **out_meta) as dest:
-            dest.write(rotated_image)
-
-        return was_success
-
-
-# TODO: old - delete?
-# rotate the image for training with neural network, so that all images have 90degrees rotation from x axis (anticloclwise)
-# save to new file
-# def rotate_img(image, angle):
-#     print(f"rotation angle: {angle}")
-#     #expand 1 is used to keep the image from beeing cropped when rotated >90
-#     rotated_img = image.rotate(angle=angle, expand=1)
-
-#     #rotate_img.save(out_tif_folder + file_name)    
-#     return rotated_img
-
-
-# calculate rotation matrix by using center and an angle in degrees; 
-# PARAMS:
-#  image: the to be rotated image as PIL image
-#  angle_degrees: the rotation angle in degrees
-# RETURNS;
-#  rotated_image: the rotated image as numpy array
-def rotate_with_matrix(image, angle_degrees):
-    image = np.array(image)
-    # Get the height and width of the cropped image
-    height, width = image.shape[:2]
-    center = (width / 2, height / 2)
-    
-    # Get the rotation matrix
-    rotation_matrix = cv2.getRotationMatrix2D(center, angle_degrees, 1.0)
-    # Perform the rotation using warpAffine
-    rotated_image = cv2.warpAffine(image, rotation_matrix, (width, height))
-
-    if len(rotated_image.shape) == 2:
-        rotated_image = cv2.cvtColor(rotated_image, cv2.COLOR_GRAY2RGB)
-    
-    return rotated_image
+    return polygon.contains(point)
 
 
 
@@ -207,6 +236,8 @@ def plot_line(str: list, bbox: list):
 
 # debugging method to plot the iteration poly and the points on a geotif
 def draw_on_geotiff(plot_title, geotiff_path, pts, iter_poly):
+    from matplotlib import pyplot as plt
+
     if len(pts) != 0:
         pts, classes = map(list, zip(*pts))
     # Open the GeoTIFF file using rasterio
@@ -216,15 +247,10 @@ def draw_on_geotiff(plot_title, geotiff_path, pts, iter_poly):
         data = dataset.read(1)  # Assuming it's a single-band raster (change index if needed)
         transform = dataset.transform
 
-
         # Print the boundaries
         # Get the corner coordinates in lat/lon
         # lon_min, lat_min = transform * (0, 0)
         # lon_max, lat_max = transform * (dataset.width, dataset.height)
-        # print("Min Latitude:", lat_min)
-        # print("Max Latitude:", lat_max)
-        # print("Min Longitude:", lon_min)
-        # print("Max Longitude:", lon_max)
 
         # Plot the GeoTIFF data
         plt.imshow(data, extent=[transform[2], transform[2] + transform[0] * dataset.width,
