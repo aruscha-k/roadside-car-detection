@@ -1,6 +1,11 @@
 import math
+import numpy as np
+
+
 from GLOBAL_VARS import CITY_CENTERPT_LEIPZIG
 
+
+#TODO delete? new method from miriam!
 # PARAMS:
 #  str_pts: 2 points of the beginning and end of street
 # RETURNS:
@@ -11,10 +16,11 @@ def find_angle_to_y(str_pts):
     y1 = max([start_pt[1], end_pt[1]])
     y2 = min([start_pt[1], end_pt[1]])  
     arcos = math.acos((y1-y2)/math.sqrt((start_pt[0]-end_pt[0])**2 + (y1-y2)**2))
-    #print("Angle to y in degrees:", math.degrees(arcos))
+    print("Angle to y in degrees:", math.degrees(arcos))
     return arcos
 
 
+#TODO
 # between two points, find the angle of the line they construct to the x-axis
 # source https://stackoverflow.com/questions/41855261/calculate-the-angle-between-a-line-and-x-axis
 # !!! check coordinate reference system => different results for same coordinates in differen coordinate system
@@ -32,14 +38,42 @@ def find_angle_to_x(str_pts):
     else:
         # print(f"angle to x: {math.degrees(math.atan(m))}")
         return math.atan(m)
+    
+
+def unit_vector(vector):
+    """
+    normalizes a given vector to a length of one
+    :param vector: any vector
+    :return: its unit vector
+    """
+    if len(vector) == 0:
+        return 0
+    return vector / np.linalg.norm(vector)
 
 
-# given a specific point for a cities center, calculate in which quadrant a street lies, when point of origin is city center
-# PARAMS: 
-# str_pts: 2 points of the beginning (index = 0) and end (index=1) of street
-# RETURNS:
-# quadrant: (int) between 1-4 according to the naming of quadrants anti-clockwise
+# resulting angle will be in the range of -180° to 180°, where positive angles indicate counter-clockwise rotation from the y-axis (north direction),
+# and negative angles represent a rotation in the clockwise direction
+# CYCLOMEDIA GENAU ANDERS HERUM!
+def calculate_street_deviation_from_north(start_pt, end_pt):
+    v0 = [0, 1]
+    v1 = unit_vector([end_pt[0] - start_pt[0], end_pt[1] - start_pt[1]])
+    determinant = np.linalg.det([v0, v1])
+    dot_product = np.dot(v0, v1)
+    angle = np.math.atan2(determinant, dot_product)
+    print("Angle to y in degrees:", -np.degrees(angle))
+
+    return -np.degrees(angle)
+
+
 def calculate_quadrant_from_center(str_pts):
+    """ given a specific point for a cities center, calculate in which quadrant a street lies, when point of origin is city center
+
+    Args:
+        str_pts (list): 2 points of the beginning (index = 0) and end (index=1) of street
+
+    Returns:
+        int: quadrant between 1-4 according to the naming of quadrants anti-clockwise
+    """
     x = str_pts[0][0]
     y = str_pts[0][1]
     origin_x = CITY_CENTERPT_LEIPZIG[0]
@@ -59,14 +93,17 @@ def calculate_quadrant_from_center(str_pts):
     return quadrant
 
 
-# method to determine the start and endpoint of a line according to this projects definition (s.WIKI) according to slope and quadrant the street lies in
-# starting point is the one closest to city center
-# PARAMS: str_pts (list) of street points
-# RETURNS:
-# str_start (float, float) start point
-#  str_end  (float, float) end point
 def calculate_start_end_pt(str_pts):
-    print(f"i: Calc start and end point for: {str_pts}")
+    """method to determine the start and endpoint of a line according to this projects definition (s.WIKI) according to slope and quadrant the street lies in, starting point is the one closest to city center
+
+    Args:
+        str_pts (list): street points
+
+    Returns:
+        str_start (float, float): start point
+        str_end (float, float): end point
+    """
+    #print(f"i: Calc start and end point for: {str_pts}")
     x_angle = find_angle_to_x(str_pts)
     slope = calculate_slope(str_pts)
     quadrant = calculate_quadrant_from_center(str_pts)
@@ -211,13 +248,16 @@ def segment_iteration_condition(slope, x_angle, str_start, str_end, x_shifted, y
                     return False
 
 
-# Calculate a slope of a line (! uses the first and last point, so order if needed)
-# !!! check coordinate reference system => different results for coordinates in different coordinate systems (EPSG4326 or EPSG 25833)
-# PARAMS:
-# linepts: (list) of points
-# RETURNS:
-# slope (float) if successfull
-def calculate_slope(linepts):
+def calculate_slope(linepts: list):
+    """ Calculate a slope of a line (! uses the first and last point, so order if needed)
+    !!! check coordinate reference system => different results for coordinates in different coordinate systems (EPSG4326 or EPSG 25833)
+
+    Args:
+        linepts (list): of points
+
+    Returns:
+        float: slope if successfull
+    """
     if len(linepts) > 0:
         first_pt = linepts[0]
         last_pt = linepts[-1]
@@ -226,10 +266,12 @@ def calculate_slope(linepts):
 
         # check if lines is parallel to y
         if abs(x1 - x2) < 0.0000001:
+           # print("parallel to y")
             return None
         
         # check if the line is parallel to x 
         if abs(x2 - x1) > 0.0000001:
+            #print((y2 - y1) / (x2 - x1))
             return (y2 - y1) / (x2 - x1)
         else:
             return 0
@@ -238,25 +280,30 @@ def calculate_slope(linepts):
         print("[!] calculate slope: empty list")
 
 
-# given a point and a slope of a line, calculate the y-intercept of the line
-# PARAMS:
-# pt: pt in the line
-# slope: (float) slope of the line
-# RETURNS:
-# b: (float) y value of y-intercept 
 def get_y_intercept(pt, slope):
+    """given a point and a slope of a line, calculate the y-intercept of the line
+
+    Args:
+        pt (tuple): pt in the line
+        slope (float): slope of the line
+
+    Returns:
+        float: y value of y-intercept 
+    """
     b = (-pt[0] * slope) + pt[1]
     return b
 
 
-# given a list of two points (start and end point) of a line, 
-# this method calculates the perpendicular (lotgerade) of the line at the start and end point
-# PARAMS:
-# str_pts (list) of two points
-# RETURNS:
-# pm (float) slope of the perpendicular
-# b_start/b_end (float) y value of y-intercept of the start / end point
 def calc_perpendicular(str_pts):
+    """given a list of two points (start and end point) of a line, this method calculates the perpendicular (lotgerade) of the line at the start and end point
+
+    Args:
+        str_pts (list): of two points
+
+    Returns:
+        pm (float): slope of the perpendicular
+        b_start/b_end (float): y value of y-intercept of the start / end point
+    """
     start_pt, end_pt = str_pts[0], str_pts[1]
     m = calculate_slope(str_pts)
     pm = -(1/m)
@@ -265,24 +312,34 @@ def calc_perpendicular(str_pts):
     return pm, b_start, b_end
 
 
-# given the slope and y intercept of two lines, this method calculates the interception point
-# PARAMS:
-# m1 / m2 (float) slope of first/second line
-# b1 / b2 (float) y-intercept of first/second line
-# RETURNS: 
-# (x,y) point of interception
 def calc_interception_of_two_lines(m1, b1, m2, b2):
+    """ given the slope and y intercept of two lines, this method calculates the interception point
+
+    Args:
+        m1 (float): slope of first line
+        b1 (float): y-intercept of first line
+        m2 (float): slope of second line
+        b2 (float): y-intercept of second line
+
+    Returns:
+        (x,y): point of interception
+    """
     x = (b2-b1) / (m1-m2)
     y = m1 * x + b1
 
     return (x,y)
 
 
-# given two points and the wanted width calculate two parallel lines and perpendiculars so get a bounding box for a street segment
-# function cant be joined with calculate_start_end segments, because it is used on iteration of segmentated semgents => more detailed
-# RETURNS:
-# bouding_box (list) with points in order [upper_left, upper_right, lower_right, lower_left] / [start_left, end_left, end_right, start_right]
 def calculate_bounding_box(str_pts, width):
+    """ given two points and the wanted width calculate two parallel lines and perpendiculars so get a bounding box for a street segment function cant be joined with calculate_start_end segments, because it is used on iteration of segmentated semgents => more detailed
+
+    Args:
+        str_pts (list): of two points
+        width (float): width of the street
+
+    Returns:
+        list: bbox with points in order [start_left, end_left, end_right, start_right]
+    """
    
     # slope of original line
     slope_origin = calculate_slope(str_pts)
@@ -392,3 +449,7 @@ def calculate_bounding_box(str_pts, width):
     bounding_box = [start_left, end_left, end_right, start_right]
     return bounding_box
 
+
+# if __name__ == "__main__":
+#     find_angle_to_y([(316822.5120000001, 5688438.680999999), (316822.10240000044, 5688330.902699999)])
+#     calculate_slope([(316822.5120000001, 5688438.680999999), (316822.10240000044, 5688330.902699999)])

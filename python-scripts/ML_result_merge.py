@@ -135,7 +135,6 @@ def compare_iteration_values(segmentation_result_dict, parking_side):
         avg_percentage = calculate_average_percentage(iteration_comparison_results, most_common_parking_value)
         return most_common_parking_value, avg_percentage
     else:
-        print("HAS DUPLICATES")
         # if there are values with the same number of counts, choose the one with the biggest percentage:
         # get the values from result list and calculate the average percentage of the duplicate items, choose the item with the highest percentage
         next_most_common_parking_value, next_most_common_count = counter.most_common(2)[1] #show the two most common items (2) (=tuples) and choose the second one of them ([1])
