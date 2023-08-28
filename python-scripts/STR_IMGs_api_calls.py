@@ -12,6 +12,7 @@ global_base_url = 'https://atlas.cyclomedia.com/PanoramaRendering/'
 
 # API request to get a list of nearest locations for a specific GPS coordinate
 # output list is ordered according to the distance to the given address location
+# example URL: https://atlas.cyclomedia.com/PanoramaRendering/ListByLocation2D/55567837/316822.5120000001/5688438.680999999?apiKey=2_4lO_8ZuXEBuXY5m7oVWzE1KX41mvcd-PQZ2vElan85eLY9CPsdCLstCvYRWrQ5
 def list_nearest_recordings(srs, lat, lon, params, print_url):
     auth = (CONF.cyclo_user_aruscha, CONF.cyclo_pwd_aruscha)
 
@@ -99,13 +100,20 @@ def get_recording_id(recordings_response, index):
     except IndexError:
         return "", ""
     first_rec_id = first_elem.attrib['recording-id']
+
     try:
         rec_date = datetime.strptime(first_elem.attrib['recording-date'], '%Y-%m-%dT%H:%M:%S.%fZ')
     except ValueError:
         new_time = (first_elem.attrib['recording-date'].replace("Z", "")) + ".00" + "Z"
         rec_date = datetime.strptime(new_time, '%Y-%m-%dT%H:%M:%S.%fZ')
+        
+    #TODO
+    try:
+        viewing_direction = first_elem.attrib['viewing-direction']
+    except:
+        print("didnt work")
 
-    return first_rec_id, rec_date
+    return first_rec_id, rec_date, viewing_direction
 
 
 # return the all nearest recording IDs

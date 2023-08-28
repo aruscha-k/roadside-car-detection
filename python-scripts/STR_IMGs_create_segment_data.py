@@ -1,7 +1,7 @@
 import ERROR_CODES as ec
 from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME
 from DB_helpers import open_connection
-from helpers_geometry import find_angle_to_y, find_angle_to_x, calculate_slope, get_y_intercept, segment_iteration_condition
+from helpers_geometry import calculate_street_deviation_from_north, find_angle_to_x, get_y_intercept, segment_iteration_condition, calculate_slope
 from helpers_coordiantes import calulate_distance_of_two_coords, shift_pt_along_street
 from STR_IMGs_api_calls import list_nearest_recordings, get_recording_id, render_by_ID
 
@@ -37,18 +37,18 @@ def get_nearest_recordings_for_street_pts(str_start: tuple, str_end:tuple, shift
     b = get_y_intercept(str_start, slope_origin)
 
     nearest_recordings_response = list_nearest_recordings(CONF.cyclo_srs, str_start[0], str_start[1], {}, False)
-    first_nearest_rec_ID, start_rec_time = get_recording_id(nearest_recordings_response, index=0)
+    first_nearest_rec_ID, start_rec_time, viewing_direction = get_recording_id(nearest_recordings_response, index=0)
     if first_nearest_rec_ID == "" and first_run:
-        rec_IDs.append({'recording_id': ec.CYCLO_NO_REC_ID_SINGLE, 'street_point': (str_start[0], str_start[1]), 'recording_point': (), 'recording_year': 0})
+        rec_IDs.append({'recording_id': ec.CYCLO_NO_REC_ID_SINGLE, 'street_point': (str_start[0], str_start[1]), 'viewing_direction': viewing_direction, 'recording_point': (), 'recording_year': 0})
         x_shifted, y_shifted = shift_pt_along_street((str_start[0], str_start[1]), x_angle, shift_length, slope_origin, b)
         if segment_iteration_condition(slope_origin, x_angle, str_start, str_end, x_shifted, y_shifted):
             rec_IDs = get_nearest_recordings_for_street_pts((x_shifted,y_shifted), str_end, shift_length, slope_origin, rec_IDs)
         return rec_IDs
     elif first_nearest_rec_ID == "" and not first_run:
-        rec_IDs.append({'recording_id': ec.CYCLO_NO_REC_ID_SINGLE, 'street_point': (str_start[0], str_start[1]), 'recording_point': (), 'recording_year': 0})
+        rec_IDs.append({'recording_id': ec.CYCLO_NO_REC_ID_SINGLE, 'street_point': (str_start[0], str_start[1]), 'viewing_direction': viewing_direction, 'recording_point': (), 'recording_year': 0})
         return rec_IDs
     
-    rec_IDs.append({'recording_id': first_nearest_rec_ID, 'street_point': (str_start[0], str_start[1]), 'recording_point': (), 'recording_year': start_rec_time.year})
+    rec_IDs.append({'recording_id': first_nearest_rec_ID, 'street_point': (str_start[0], str_start[1]), 'viewing_direction': viewing_direction, 'recording_point': (), 'recording_year': start_rec_time.year})
     x_shifted, y_shifted = shift_pt_along_street((str_start[0], str_start[1]), x_angle, shift_length, slope_origin, b)
     #print(f"start point: {str_start[0], str_start[1]}, recording id:  {first_nearest_rec_ID} - time: {start_rec_time}")
     #print("next point:", x_shifted, y_shifted)
@@ -56,14 +56,14 @@ def get_nearest_recordings_for_street_pts(str_start: tuple, str_end:tuple, shift
     while segment_iteration_condition(slope_origin, x_angle, str_start, str_end, x_shifted, y_shifted):
         recording_index = 0
         nearest_recordings = list_nearest_recordings(CONF.cyclo_srs, x_shifted, y_shifted, {}, False)
-        nearest_rec_ID, rec_time = get_recording_id(nearest_recordings, recording_index)
+        nearest_rec_ID, rec_time, viewing_direction = get_recording_id(nearest_recordings, recording_index)
 
         if nearest_rec_ID == "" and first_run:
-            rec_IDs.append({'recording_id': ec.CYCLO_NO_REC_ID_SINGLE, 'street_point': (x_shifted, y_shifted), 'recording_point': (), 'recording_year': 0})
+            rec_IDs.append({'recording_id': ec.CYCLO_NO_REC_ID_SINGLE, 'street_point': (x_shifted, y_shifted), 'viewing_direction': viewing_direction, 'recording_point': (), 'recording_year': 0})
             rec_IDs = get_nearest_recordings_for_street_pts((x_shifted,y_shifted), str_end, shift_length, slope_origin, rec_IDs)
             return rec_IDs
         elif nearest_rec_ID == "" and not first_run:
-            rec_IDs.append({'recording_id': ec.CYCLO_NO_REC_ID_SINGLE, 'street_point': (x_shifted, y_shifted), 'recording_point': (), 'recording_year': 0})
+            rec_IDs.append({'recording_id': ec.CYCLO_NO_REC_ID_SINGLE, 'street_point': (x_shifted, y_shifted), 'viewing_direction': viewing_direction, 'recording_point': (), 'recording_year': 0})
             return rec_IDs
         else:
             t_delta = abs(((rec_time - start_rec_time).total_seconds()/60))
@@ -75,14 +75,14 @@ def get_nearest_recordings_for_street_pts(str_start: tuple, str_end:tuple, shift
         while t_delta > 2:
             
             recording_index += 1
-            nearest_rec_ID, rec_time = get_recording_id(nearest_recordings, recording_index)
+            nearest_rec_ID, rec_time, viewing_direction = get_recording_id(nearest_recordings, recording_index)
 
             if nearest_rec_ID == "" and first_run:
-                rec_IDs.append({'recording_id': ec.CYCLO_NO_REC_ID_SINGLE, 'street_point': (x_shifted, y_shifted), 'recording_point': (0,0), 'recording_year': 0})
+                rec_IDs.append({'recording_id': ec.CYCLO_NO_REC_ID_SINGLE, 'street_point': (x_shifted, y_shifted), 'viewing_direction': viewing_direction, 'recording_point': (0,0), 'recording_year': 0})
                 rec_IDs = get_nearest_recordings_for_street_pts((x_shifted,y_shifted), str_end, shift_length, slope_origin, rec_IDs)
                 return rec_IDs
             elif nearest_rec_ID == "" and not first_run:
-                rec_IDs.append({'recording_id': ec.CYCLO_NO_REC_ID_SINGLE, 'street_point': (x_shifted, y_shifted), 'recording_point': (0,0), 'recording_year': 0})
+                rec_IDs.append({'recording_id': ec.CYCLO_NO_REC_ID_SINGLE, 'street_point': (x_shifted, y_shifted), 'viewing_direction': viewing_direction, 'recording_point': (0,0), 'recording_year': 0})
                 return rec_IDs
             else:
                 t_delta = abs(((rec_time - start_rec_time).total_seconds()/60))
@@ -90,13 +90,30 @@ def get_nearest_recordings_for_street_pts(str_start: tuple, str_end:tuple, shift
             #print("SECOND WHILE recording index", recording_index, "recID", nearest_rec_ID, "bool:", first_run, "tdelta", t_delta, "time: ", rec_time)
      
         if nearest_rec_ID not in [item["recording_id"] for item in rec_IDs]:
-            rec_IDs.append({'recording_id': nearest_rec_ID, 'street_point': (x_shifted, y_shifted), 'recording_point': (), 'recording_year': rec_time.year})
+            rec_IDs.append({'recording_id': nearest_rec_ID, 'street_point': (x_shifted, y_shifted), 'viewing_direction': viewing_direction, 'recording_point': (), 'recording_year': rec_time.year})
             
         x_shifted, y_shifted = shift_pt_along_street((x_shifted, y_shifted), x_angle, shift_length, slope_origin, b)
         #print(f"next point: {x_shifted,y_shifted}", "rec_ID_keys", [item["recording_id"] for item in rec_IDs])
         start_rec_time = rec_time
 
+    print(rec_IDs)
     return rec_IDs
+
+
+# NEW: calculate shortest_angular_distance between cyclomedia recording direction angle and street north deviation angle
+# if between specified range return True, else False
+def is_recording_direction_equal_street_direction(recording_direction, street_north_deviation):
+    # Calculate the absolute difference between the angles
+    abs_diff = abs(recording_direction - street_north_deviation)
+    
+    # Check for wraparound
+    if abs_diff > 180:
+        abs_diff = 360 - abs_diff
+
+    if 0 <= abs_diff <= 30:
+        return True
+    else:
+        return False
 
 
 # for a list of recording_IDs, call cyclomedia function to retrieve the corresponding image
@@ -105,17 +122,10 @@ def get_nearest_recordings_for_street_pts(str_start: tuple, str_end:tuple, shift
 #  max_distance (float) a threshold value how far apart a recording point and the street point for which the recoridng point is are allowed to be apart
 #  y_angle (float) angle in degrees of the deviation from north direction
 #  folder dir (string) path to the folder to save the imgs in
-def get_image_IDs_from_cyclomedia(segment_id:int, segmentation_number:int, rec_IDs:list, slope_origin:float, max_distance:int, y_angle:float, folder_dir:str):
+def get_image_IDs_from_cyclomedia(segment_id:int, segmentation_number:int, rec_IDs:list, north_deviation: float, max_distance:int, folder_dir:str):
     print(f"[i] Getting image IDs and images from cyclo")
     if len(rec_IDs) == 0:
         return rec_IDs
-
-    # for the cyclomedia api the y_angle gives the deviation from north direction. for streets with falling slope
-    # the y_angle is measured "on the other side" therefore it is not represention the deivation from north without adding 90
-    if slope_origin < 0:
-        y_angle = (90-y_angle) + 90
-    elif slope_origin > 0:
-        y_angle = y_angle
 
     # for filesaving
     if segmentation_number < 10:
@@ -123,13 +133,24 @@ def get_image_IDs_from_cyclomedia(segment_id:int, segmentation_number:int, rec_I
 
     for idx, item in enumerate(rec_IDs):
 
+        # TODO GET CYCLOMEDIA RECORDING DIRECTION
+        # for the cyclomedia api the y_angle gives the deviation from north direction. yaw = 0 => looking towards north,
+        # for streets with falling slope the y_angle is measured "on the other side" therefore it is not represention the deivation from north without adding 90
+        # if slope_origin < 0:
+        #     y_angle = (90-y_angle) + 90
+        # elif slope_origin > 0:
+        #     y_angle = y_angle
+        #TODO: recording_direction =  get_cyclomedia_recording_direction()
+        is_recording_direction_equal_street_direction(recording_direction, north_deviation)
+
         if item['recording_id'] == ec.CYCLO_NO_REC_ID_SINGLE:
             item['recording_point'] = (0,0)
             continue
 
         #direction 90/-90 would be on the right/left side of the car
-        params = {'yaw': str(y_angle), 'hfov': '80'}
-        response, recording_lat, recording_lon = render_by_ID(CONF.cyclo_srs, item['recording_id'], params, False)
+        #params = {'yaw': str(y_angle), 'hfov': '80'}
+        params = {}
+        response, recording_lat, recording_lon = render_by_ID(CONF.cyclo_srs, item['recording_id'], params, True)
         item['recording_point'] = (recording_lat, recording_lon)
 
         if response.status_code == 200:
@@ -137,17 +158,17 @@ def get_image_IDs_from_cyclomedia(segment_id:int, segmentation_number:int, rec_I
             # calc distance between streeet and recording point, if too large, cyclomedia didnt drive through the street
             distance = calulate_distance_of_two_coords(item['recording_point'], item['street_point'])
 
-            if distance > max_distance:
-                print("[!!!] MAX DIST not saving image")
-                item['recording_id'] = ec.CYCLO_MAX_DIST
-                item['recording_point'] = (0,0) 
-                continue    
+            # if distance > max_distance:
+            #     print("[!!!] MAX DIST not saving image")
+            #     item['recording_id'] = ec.CYCLO_MAX_DIST
+            #     item['recording_point'] = (0,0) 
+            #     continue    
         
-            else:
+            # else:
 
-                img_file_name = str(segment_id) + "_" + str(segmentation_number) + "_" + str(item['recording_id']) + ".jpg"
-                with open(folder_dir + img_file_name, 'wb') as file:
-                    file.write(response.content)
+                # img_file_name = str(segment_id) + "_" + str(segmentation_number) + "_" + str(item['recording_id']) + ".jpg"
+                # with open(folder_dir + img_file_name, 'wb') as file:
+                #     file.write(response.content)
             
         else:
             print(f"[!!!] BAD STATUSCODE: for image with id: {item['recording_id']}")
@@ -232,9 +253,9 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, get_sideways_imgs):
                 cursor.execute("""SELECT array_agg(segmentation_number) FROM segments_cyclomedia WHERE segment_id = %s GROUP BY segmentation_number""", (segment_id, ))
                 cyclo_result_rows = cursor.fetchall()
                 
-                if len(cyclo_result_rows) == len(segmentation_result_rows): 
-                    print("EXIST - SKIP")
-                    continue
+                # if len(cyclo_result_rows) == len(segmentation_result_rows): 
+                #     print("EXIST - SKIP")
+                #     continue
                 
                 cursor.execute("""SELECT multiple_areas FROM area_segment_relation WHERE segment_id = %s""", (segment_id, ))
                 multiple_areas = cursor.fetchone()
@@ -256,20 +277,19 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, get_sideways_imgs):
                         segmentation_number = segmentation_result_rows[0][0]
                         start_lat, start_lon = segmentation_result_rows[0][1], segmentation_result_rows[0][2]
                         end_lat, end_lon = segmentation_result_rows[0][3], segmentation_result_rows[0][4]
-                        temp_coords = [(start_lat, start_lon), (end_lat, end_lon)]
-                        y_angle_radians = find_angle_to_y(temp_coords)
-                        y_angle_degrees = math.degrees(y_angle_radians)
-                        slope_origin = calculate_slope(temp_coords)
-
+                        slope_origin = calculate_slope([(start_lat, start_lon), (end_lat, end_lon)])
+                        north_deviation = calculate_street_deviation_from_north((start_lat, start_lon), (end_lat, end_lon))
+                        print("START & END COORDS: ", (start_lat, start_lon), (end_lat, end_lon))
+       
                         rec_IDs = get_nearest_recordings_for_street_pts((start_lat, start_lon), (end_lat, end_lon), shift_length, slope_origin, [])
-                        rec_IDs = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = rec_IDs, slope_origin = slope_origin, max_distance = 9, y_angle = y_angle_degrees, folder_dir=PATHS.CYCLO_IMG_FOLDER_PATH)
-                        load_into_db(rec_IDs=rec_IDs, segment_id = segment_id, segmentation_number=segmentation_number, connection=con)
+                        rec_IDs = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = rec_IDs, north_deviation = north_deviation, max_distance = 9, folder_dir=PATHS.CYCLO_IMG_FOLDER_PATH)
+                        # load_into_db(rec_IDs=rec_IDs, segment_id = segment_id, segmentation_number=segmentation_number, connection=con)
 
-                        if get_sideways_imgs:
-                            # right side??
-                            _ = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = rec_IDs, slope_origin = slope_origin, max_distance = 9, y_angle = (90 + y_angle_degrees), folder_dir=PATHS.CYCLO_90_IMG_FOLDER_PATH)
-                            # left side??
-                            _ = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = rec_IDs, slope_origin = slope_origin, max_distance = 9, y_angle = (-90 + y_angle_degrees), folder_dir=PATHS.CYCLO_MINUS90_IMG_FOLDER_PATH)
+                        # if get_sideways_imgs: #TODO
+                        #     # right side??
+                        #     _ = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = rec_IDs, slope_origin = slope_origin, max_distance = 9, y_angle = (90 + y_angle_degrees), folder_dir=PATHS.CYCLO_90_IMG_FOLDER_PATH)
+                        #     # left side??
+                        #     _ = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = rec_IDs, slope_origin = slope_origin, max_distance = 9, y_angle = (-90 + y_angle_degrees), folder_dir=PATHS.CYCLO_MINUS90_IMG_FOLDER_PATH)
             
                     # segment is divided into smaller parts
                     elif len(segmentation_result_rows) > 1:
@@ -278,21 +298,20 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, get_sideways_imgs):
                             segmentation_number = segmentation_result_rows[idx][0]
                             start_lat, start_lon = segmentation_result_rows[idx][1], segmentation_result_rows[idx][2]
                             end_lat, end_lon = segmentation_result_rows[idx][3], segmentation_result_rows[idx][4]
-                            temp_coords = [(start_lat, start_lon), (end_lat, end_lon)]
-                            y_angle_radians = find_angle_to_y(temp_coords)
-                            y_angle_degrees = math.degrees(y_angle_radians)
-                            slope_origin = calculate_slope(temp_coords)
-
+                            slope_origin = calculate_slope([(start_lat, start_lon), (end_lat, end_lon)])
+                            north_deviation = calculate_street_deviation_from_north((start_lat, start_lon), (end_lat, end_lon))
+                            print("START & END COORDS: ", (start_lat, start_lon), (end_lat, end_lon))                                                        
+       
                             rec_IDs = get_nearest_recordings_for_street_pts((start_lat, start_lon), (end_lat, end_lon), shift_length, slope_origin, [])
-                            rec_IDs = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = rec_IDs, slope_origin = slope_origin, max_distance = 9, y_angle = y_angle_radians, folder_dir=PATHS.CYCLO_IMG_FOLDER_PATH)
+                            rec_IDs = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = rec_IDs, north_deviation = north_deviation, max_distance = 9, folder_dir=PATHS.CYCLO_IMG_FOLDER_PATH)
 
-                            load_into_db(rec_IDs=rec_IDs, segment_id=segment_id, segmentation_number=segmentation_number, connection=con)
+                            # load_into_db(rec_IDs=rec_IDs, segment_id=segment_id, segmentation_number=segmentation_number, connection=con)
 
-                            if get_sideways_imgs:
-                                # right side??
-                                _ = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = rec_IDs, slope_origin = slope_origin, max_distance = 9, y_angle = (90 + y_angle_degrees), folder_dir=PATHS.CYCLO_90_IMG_FOLDER_PATH)
-                                # left side??
-                                _ = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = rec_IDs, slope_origin = slope_origin, max_distance = 9, y_angle = (-90 + y_angle_degrees), folder_dir=PATHS.CYCLO_MINUS90_IMG_FOLDER_PATH)
+                            # if get_sideways_imgs: # TODO
+                            #     # right side??
+                            #     _ = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = rec_IDs, slope_origin = slope_origin, max_distance = 9, y_angle = (90 + y_angle_degrees), folder_dir=PATHS.CYCLO_90_IMG_FOLDER_PATH)
+                            #     # left side??
+                            #     _ = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = rec_IDs, slope_origin = slope_origin, max_distance = 9, y_angle = (-90 + y_angle_degrees), folder_dir=PATHS.CYCLO_MINUS90_IMG_FOLDER_PATH)
 
 
 
@@ -300,4 +319,4 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, get_sideways_imgs):
 if __name__ == "__main__":
     config_path = f'{RES_FOLDER_PATH}/{DB_CONFIG_FILE_NAME}'
                                                     #suburb list = tuple (sstr, int)
-    get_cyclomedia_data(config_path, PATHS.DB_USER, suburb_list=[("Südvorstadt", 70)], get_sideways_imgs = False)
+    get_cyclomedia_data(config_path, PATHS.DB_USER, suburb_list=[("Volkmarsdorf", 70)], get_sideways_imgs = False)
