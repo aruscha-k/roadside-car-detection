@@ -146,7 +146,8 @@
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
             {"name": "segmentation_number", "type": "int"},
-            {"name": "recording_year", "type": "int" }
+            {"name": "recording_year", "type": "int" },
+            {"name": "bbox", "type": "jsonb"}
         ],
         "constraints": {
             "primaryKey": ["segment_id", "segmentation_number"]
