@@ -1,0 +1,18 @@
+{
+    "db_config": "db_server_config.json",
+    "data_scources": [
+        {
+            "file_path": "2021_12_22_sdegdw_f66_d_StrassenSegmente_CLEANED.json",
+            "mapping_path": "strassen_segmente_testgebiet_mapping.json"
+        },
+        {
+            "file_path": "leipzig_verkehrsflaechen_breite_gdi_merged_20230504_CLEANED.json",
+            "mapping_path": "verkehrsflaechen_testgebiet_mapping.json"
+        },
+        {
+            "file_path": "leipzig_ortsteile_CLEANED.json",
+            "mapping_path": "ortsteile_mapping.json"
+        }
+
+    ]
+}

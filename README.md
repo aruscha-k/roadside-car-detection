@@ -43,7 +43,8 @@ CREATE EXTENSION postgis_raster SCHEMA postgis;
 CREATE  EXTENSION pgrouting SCHEMA postgis;
 CREATE USER cut WITH PASSWORD 'get the password from the file in the cloud' CREATEDB;
 CREATE DATABASE streets_leipzig;
-
+\c streets_leipzig
+CREATE EXTENSION postgis;
 \q
 
 sudo nano /etc/postgresql/14/main/postgresql.conf
@@ -57,8 +58,15 @@ sudo nano /etc/postgresql/14/main/postgresql.conf
 echo 'host    all             cut             172.26.44.0/22          scram-sha-256' | sudo tee -a /etc/postgresql/14/main/pg_hba.conf
 echo 'host    all             cut             172.22.0.0/15           scram-sha-256' | sudo tee -a /etc/postgresql/14/main/pg_hba.conf
 
-
 # restart postgresql with
 sudo systemctl restart postgresql
+```
 
+# Seting up DB-Schema
+Switch to a client computer with this repo and the conda env installed.
+Then run the following command to create the schema in the database.
+```bash
+python python-scripts/DB_create_db_schema.py
+python python-scripts/DB_create_relations.py
+python python-scripts/DB_load_city_data.py
 ```
