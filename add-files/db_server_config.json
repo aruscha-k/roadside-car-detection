@@ -1,0 +1,6 @@
+{
+    "host": "172.26.44.49",
+    "database": "streets_leipzig",
+    "port": 5432,
+    "schema": "db_schema.json"
+}
