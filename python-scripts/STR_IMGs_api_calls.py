@@ -56,6 +56,7 @@ def list_nearest_recordings(srs, lat, lon, params, print_url):
 
 def render_by_ID(srs_name, recording_id, params, print_url):
     """ API request to render a certain image by ID
+        example URL: https://atlas.cyclomedia.com/PanoramaRendering/Render/WE6HU19P/?apiKey=2_4lO_8ZuXEBuXY5m7oVWzE1KX41mvcd-PQZ2vElan85eLY9CPsdCLstCvYRWrQ5&srsName=epsg:55567837
 
     Args:
         srs_name (int): the epsg number !! put epsg: before the number in url
@@ -172,7 +173,7 @@ def get_viewing_direction(srs_name, recording_id):
     except KeyError:
         print("[!] No viewing direction")
 
-    return float(recorder_direction, round = 2)
+    return round(recorder_direction, 2)
 
 
 def get_all_recording_ids(recordings_response):

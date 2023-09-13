@@ -60,7 +60,7 @@ def calculate_street_deviation_from_north(start_pt, end_pt):
     determinant = np.linalg.det([v0, v1])
     dot_product = np.dot(v0, v1)
     angle = np.math.atan2(determinant, dot_product)
-    print("Angle to y in degrees:", -np.degrees(angle))
+    print("Deviation from north:", -np.degrees(angle))
 
     return -np.degrees(angle)
 
