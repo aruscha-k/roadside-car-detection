@@ -8,7 +8,7 @@ from detectron2 import model_zoo
 from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
 
-from PATH_CONFIGS import RES_FOLDER_PATH, CYCLO_DETECTION_MODEL, AIR_DETECTION_MODEL, CYCLO_IMG_FOLDER_PATH, AIR_CROPPED_ROTATED_FOLDER_PATH, AIR_TEMP_CROPPED_FOLDER_PATH
+from PATH_CONFIGS import RES_FOLDER_PATH, CYCLO_DETECTION_MODEL, AIR_DETECTION_MODEL, CYCLO_IMG_FOLDER_PATH, AIR_CROPPED_ROTATED_FOLDER_PATH, AIR_TEMP_CROPPED_FOLDER_PATH, DEMO_AIR_DETECTION_FOLDER_PATH, DEMO_CYCLO_DETECTION_FOLDER_PATH
 from helpers_coordiantes import is_point_within_polygon
 from AIR_IMGs_process import transform_geotif_to_north, transform_coordinates_to_pixel, transform_points, is_car_within_polygon
 
@@ -98,11 +98,11 @@ def remove_unparked_cars_for_air(instances):
     return instances
 
 
-def transform_air_img(img_file, img_bbox, out_file_type):
+def transform_air_img(img_file_name, img_bbox, out_file_type):
     """ method to run all methods to transform a tif file towards the north direction with perspective trasnform
 
     Args:
-        img_file (string): file path of in image, ! with extension
+        img_file_name (string): file path of in image, ! without extension
         img_bbox (list): of corner points of street segment
         out_file_type (string): ".jpg" / ".tif"
 
@@ -111,7 +111,7 @@ def transform_air_img(img_file, img_bbox, out_file_type):
         tiff_matrix (matrix): transform matrix of tif (coordinates <> px)
         out_file (string): filepath of output file
     """
-    img_file_name = img_file[:-4]
+    
     in_tif = AIR_TEMP_CROPPED_FOLDER_PATH + img_file_name + ".tif"
     if not os.path.exists(in_tif):
         print("[!] ERROR when tranforming air img: path not found for in_tif")
@@ -247,6 +247,7 @@ def run_detection(img_path_and_position_list, img_type, iter_information_dict):
 
     if img_type == "air":
         img_file_name = img_path_and_position_list[0][0]
+        img_file_name = img_file_name[:-4]
         bbox = img_path_and_position_list[0][1]
 
         transform_matrix, tiff_matrix, out_img_path = transform_air_img(img_file_name, bbox, out_file_type=".tif")
@@ -258,13 +259,13 @@ def run_detection(img_path_and_position_list, img_type, iter_information_dict):
             return {}
         outputs = predictor(cropped_rotated_img)
         instances = outputs["instances"].to("cpu")
-        
         if len(instances) > 2:
             instances = remove_unparked_cars_for_air(instances)
 
-        #visualize_prediction(out_img_path, "air")
         bboxes = instances.pred_boxes.tensor.cpu().numpy()
         classes = instances.pred_classes.cpu().numpy()
+
+        visualize_and_save_prediction_img(out_img_path, instances, "air", show_img = False, save_img = True, pred_img_file = DEMO_AIR_DETECTION_FOLDER_PATH + img_file_name + ".jpg") #for scads demo, save the image file with predictions
         
     # go through each iteration
     for iteration_number, iteration_poly in iter_information_dict.items():
@@ -289,6 +290,8 @@ def run_detection(img_path_and_position_list, img_type, iter_information_dict):
                     predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = 'left', predicted_classes_for_side = [item[1] for item in im_left],  predictions = predictions[iteration_number])
                     predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = 'right', predicted_classes_for_side = [item[1] for item in im_right], predictions = predictions[iteration_number])
 
+                    visualize_and_save_prediction_img(os.path.join(CYCLO_IMG_FOLDER_PATH, img_file), instances, "cyclo", show_img = False, save_img = True, pred_img_file = DEMO_CYCLO_DETECTION_FOLDER_PATH + img_file) #for scads demo, save the image file with predictions
+
         if img_type == "air":
             px_bbox = transform_coordinates_to_pixel(iteration_poly, tiff_matrix)
             transformed_poly_points = transform_points(px_bbox, transform_matrix).astype(np.int32)
@@ -308,7 +311,7 @@ def run_detection(img_path_and_position_list, img_type, iter_information_dict):
                              
     # for all predictions, calculate the parking
     parking_dict =  calculate_parking(predictions, img_type)
-    print(parking_dict)
+    #print(parking_dict)
 
     return parking_dict
 
@@ -339,9 +342,9 @@ def assign_predictions_to_side_and_iteration(side, predicted_classes_for_side, p
     return predictions
 
 
-# -------- for debug only ----------------
+# -------- for debug and demo ----------------
 # visualize prediction for 1 image
-def visualize_prediction(filename, img_type):
+def visualize_and_save_prediction_img(filename, instances, img_type, show_img, save_img, pred_img_file):
     from detectron2.utils.visualizer import Visualizer
 
     if img_type == "air":
@@ -352,13 +355,16 @@ def visualize_prediction(filename, img_type):
         metadata = {"thing_classes": ['parallel', 'diagonal/senkrecht']}
     
     im = cv2.imread(filename)
-    outputs = predictor(im)
-    instances = outputs["instances"].to("cpu")
+    #outputs = predictor(im)
+    #instances = outputs["instances"].to("cpu")
     
     v = Visualizer(im[:, :, ::-1], metadata=metadata, scale=0.5)
     out = v.draw_instance_predictions(instances)
-    cv2.imshow('Prediction', out.get_image()[:, :, ::-1])
-    cv2.waitKey(0)
+    if show_img:
+        cv2.imshow('Prediction', out.get_image()[:, :, ::-1])
+        cv2.waitKey(0)
+    if save_img:
+        cv2.imwrite(pred_img_file, out.get_image()[:, :, ::-1])
 
 
 
