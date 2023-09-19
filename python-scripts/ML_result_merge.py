@@ -6,7 +6,17 @@ import os
 
 
 def populate_db_result_dict(db_results, img_type, result_dict):
+    """ HELPER method to create the parking result dict for both DB calls (cyclo and air); is beeing appended from empty to air DB call to cyclo DB call
 
+    Args:
+        db_results (list): results from the DB call
+        img_type (str): cyclo or air
+        result_dict (dict): dict at its current state 
+
+    Returns:
+        dict: key = dict (key segmentation_number): (dict (key iteration number) (dict (key parking side) list))
+        {<segmentation_number>: {iteration_number: {'left': [{'cyclo': ('parallel', percentage)}, {'air': ('kein Auto', 100.0)}], 'right': [{'cyclo': ('parallel', 100.0)}]}, iteration_number+1: {...}
+    """
     for item in db_results:
         segmentation_number = item[0]
         iteration_number = item[1]
@@ -28,13 +38,17 @@ def populate_db_result_dict(db_results, img_type, result_dict):
     return result_dict
 
 
-# method to fetch ML results for each iteration for one segment
-# PARAMS:
-#  cursor: DB cursor
-#  segment_id: segment_id to fetch results for
-# RETURN:
-#  result_dict (dict) {<segmentation_number>: {iteration_number: {'left': [{'cyclo': ('parallel', percentage)}, {'air': ('kein Auto', 100.0)}], 'right': [{'cyclo': ('parallel', 100.0)}]}, iteration_number+1: {...}
-def fetch_results(cursor, segment_id:int):
+def fetch_parking_results_per_segment(cursor, segment_id:int):
+    """ HELPER method to fetch ML results for each iteration within one segment
+
+    Args:
+        cursor (DB cursor): 
+        segment_id (int): segment_id to fetch results for
+
+    Returns:
+        dict: key = dict (key segmentation_number): (dict (key iteration number) (dict (key parking side) list))
+        {<segmentation_number>: {iteration_number: {'left': [{'cyclo': ('parallel', percentage)}, {'air': ('kein Auto', 100.0)}], 'right': [{'cyclo': ('parallel', 100.0)}]}, iteration_number+1: {...}
+    """
     
     result_dict = dict()
     cursor.execute("""SELECT segmentation_number, iteration_number, parking, value, percentage FROM parking_cyclomedia WHERE segment_id = %s ORDER BY segmentation_number ASC""", (segment_id, ))
@@ -58,17 +72,31 @@ def fetch_results(cursor, segment_id:int):
 
 
 def apply_weights(parking_value, percentage):
-    # WEIGH NO CAR DETECTIONS LESS; SUBTRACT 30 % FROM PERCENTAGE
+    """ some classes should weigh less in calculation, for no car subtract 30 percent
+
+    Args:
+        parking_value (str): the parking value class
+        percentage (float): the percentage for that class
+
+    Returns:
+        str, float: class with new percentage
+    """
     if parking_value == "kein Auto":
         percentage -= 30
 
     return parking_value, percentage
 
 
-# RETURN
-#  value, percentage of parking
 def compare_iteration_result_per_image_type(results_per_side):
+    """ compare for one iteration step the two values of cyclo and air
 
+    Args:
+        results_per_side (list): of two dicts => [{'air': ('kein Auto', 100.0)}, {'cyclo': ('parallel', 100.0)}]
+
+    Returns:
+        str, float: parking_value, parking_percentage
+    """
+   
     if len(results_per_side) == 2:
         for dict_item in results_per_side:
             
@@ -82,20 +110,23 @@ def compare_iteration_result_per_image_type(results_per_side):
                 air_parking_percentage = dict_item.get("air")[1]
                 air_parking_value, air_parking_percentage = apply_weights(air_parking_value, air_parking_percentage)
 
-        # compare parking_values
+        # if both have same parking_value
         if cyclo_parking_value == air_parking_value:
             avg_percentage = (cyclo_parking_percentage + air_parking_percentage)/2
             return cyclo_parking_value, avg_percentage
-
         else:
+            # if cyclo has higher percentage
             if cyclo_parking_percentage > air_parking_percentage:
                 return cyclo_parking_value, cyclo_parking_percentage
             
+            # if air has higher percentage
             elif air_parking_percentage > cyclo_parking_percentage:
                 return air_parking_value, air_parking_percentage
+            # if both have same percentage TODO
+            elif air_parking_percentage == cyclo_parking_percentage:
+                return "", 0
 
-            
-    # if there is only one result for one image type
+    # if there is only one result from one image type, return it after applying weights
     if len(results_per_side) == 1:
       
         parking_value = list(results_per_side[0].values())[0][0]
@@ -105,8 +136,16 @@ def compare_iteration_result_per_image_type(results_per_side):
         return parking_value, parking_percentage
 
 
-
 def calculate_average_percentage(result_list, parking_value):
+    """ HELPER for a specific parking value, calculate the average percentage for all values
+
+    Args:
+        result_list (list): of tuples (value, percentage)
+        parking_value (str): the class value for parking
+
+    Returns:
+        float: average percentage
+    """
     percentage_list = [percentage for value, percentage in result_list if value == parking_value]
     avg_percentage = sum(percentage_list) / len(percentage_list)
     # print("avg_percentage", round(avg_percentage, 1))
@@ -114,19 +153,29 @@ def calculate_average_percentage(result_list, parking_value):
 
 
 def compare_iteration_values(segmentation_result_dict, parking_side):
+    """ compare all iterations parking values for one parking side for both image types
+        iterate iterations and compare parking side for both image types, save results to a temp list 
+        use temp list to find the most common value which will be the result for the whole segment
+        method implements the ability to check for same count of parking values (called duplicates)
 
+    Args:
+        segmentation_result_dict (dict): all parking results for segmentation
+        parking_side (str): left / right
+
+    Returns:
+        str, float: parking_value, parking_percentage for the SEGMENT on the specified parking side
+    """
     iteration_comparison_results = []
+
     # compare per iteration the "two images"
     for iteration_number, values in segmentation_result_dict.items():
         # print("in", parking_side, values[parking_side])
         parking_value, parking_percentage = compare_iteration_result_per_image_type(values[parking_side])
         iteration_comparison_results.append((parking_value, parking_percentage))
-
     # print("results of comparison:", iteration_comparison_results)
 
-    # merge all iteration results to one big result for the whole segment
+    # merge all iteration results to one big result for the whole segmen
     counter = Counter([item[0] for item in iteration_comparison_results])
-
     most_common_parking_value, most_common_count = counter.most_common(1)[0]# show the most common item (1) (=tuple) and choose it ([0])
     next_most_common_count = counter.most_common(2)[1][1] if len(counter) > 1 else 0
     has_duplicates = most_common_count == next_most_common_count
@@ -135,8 +184,8 @@ def compare_iteration_values(segmentation_result_dict, parking_side):
         avg_percentage = calculate_average_percentage(iteration_comparison_results, most_common_parking_value)
         return most_common_parking_value, avg_percentage
     else:
-        # if there are values with the same number of counts, choose the one with the biggest percentage:
-        # get the values from result list and calculate the average percentage of the duplicate items, choose the item with the highest percentage
+        # if there are parking values with the same number of counts, choose the one with the biggest percentage:
+        # to do so get the values from result list and calculate the average percentage of the duplicate items, choose the item with the highest percentage
         next_most_common_parking_value, next_most_common_count = counter.most_common(2)[1] #show the two most common items (2) (=tuples) and choose the second one of them ([1])
         most_common_avg = calculate_average_percentage(iteration_comparison_results, most_common_parking_value)
         next_most_common_avg = calculate_average_percentage(iteration_comparison_results, next_most_common_parking_value)
@@ -156,6 +205,16 @@ def compare_iteration_values(segmentation_result_dict, parking_side):
 
 
 def run(db_config, db_user, suburb_list):
+    """ Method to merge parking results fro cyclomedia and air images for a specific suburb (list):
+        iterate all suburbs -> get all segment ids per suburb -> 
+
+    Args:
+        db_config (str): path to DB information
+        db_user (str): path to DB user to log in 
+        suburb_list (list): of tuples with ot_name, ot_nr
+
+    """
+     
     with open_connection(db_config, db_user) as con:
         cursor = con.cursor()
 
@@ -167,14 +226,17 @@ def run(db_config, db_user, suburb_list):
             for idx, segment_id in enumerate(segment_ids):
                 print("----segment id: ",segment_id, " - Number", idx+1, "of ", len(segment_ids))
 
-                merged_results = fetch_results(cursor, segment_id)
-                if merged_results != {}:
-                    for segmentation_number in merged_results.keys():
+                segment_parking_results = fetch_parking_results_per_segment(cursor, segment_id)
+                
+                if segment_parking_results != {}:
+
+                    # compare parking results per segmentation_number (of segment) first left side, then right
+                    for segmentation_number in segment_parking_results.keys():
         
-                        left_most_common_value, left_avg_percentage = compare_iteration_values(merged_results[segmentation_number], 'left')
+                        left_most_common_value, left_avg_percentage = compare_iteration_values(segment_parking_results[segmentation_number], 'left')
                         cursor.execute("""INSERT INTO parking VALUES (%s, %s, %s, %s, %s)""", (segment_id, segmentation_number, "left", left_most_common_value, left_avg_percentage, ))
 
-                        right_most_common_value, right_avg_percentage = compare_iteration_values(merged_results[segmentation_number], 'right')
+                        right_most_common_value, right_avg_percentage = compare_iteration_values(segment_parking_results[segmentation_number], 'right')
                         cursor.execute("""INSERT INTO parking VALUES (%s, %s, %s, %s, %s)""", (segment_id, segmentation_number, "right", right_most_common_value, right_avg_percentage))
             
                         con.commit()
@@ -184,23 +246,6 @@ def run(db_config, db_user, suburb_list):
                     print("[!] RESULT---------> no result, empty fetch")
 
 
-
-# def suvo(db_config, DB_USER, suburb_list):
-
-#     import pandas as pd
-#     sides_df = pd.read_csv('/Users/aruscha/Desktop/segment_sides.csv')
-
-#     with open_connection(db_config, DB_USER) as con:
-#         cursor = con.cursor()
-
-#         for ot_name, ot_nr in suburb_list:
-
-#             cursor.execute("""SELECT id FROM segments WHERE ot_name = %s""", (ot_name, ))
-#             segment_ids = [item[0] for item in cursor.fetchall()]
-
-#             filtered_df = sides_df[sides_df['segment_id'].isin(segment_ids)]
-#             filtered_df.to_csv('/Users/aruscha/Desktop/suedvo_segment_sides.csv')
-            
 
 if __name__ == "__main__":
     db_config = os.path.join(RES_FOLDER_PATH, DB_CONFIG_FILE_NAME)
