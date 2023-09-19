@@ -49,7 +49,7 @@ def add_image_to_list(img_folder, img_file, img_position_information, img_path_a
         img_path_and_position_list.append((img_file, img_position_information))
         return img_path_and_position_list
     else:
-        print("[!!] invalid path", img_folder, img_file)
+        print("[!!] invalid path", img_folder + img_file)
         log(img_type=img_type, logstart=log_start, logtime=datetime.now(), message= f"no file found for segment_id {segment_id}")
         return img_path_and_position_list
 
@@ -167,7 +167,7 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
                                     con.commit()
                                    
                                 except psycopg2.errors.UniqueViolation as e:
-                                    #print(e)
+                                    print(e) #TODO LOG
                                     con.rollback()
                                     continue
 
@@ -176,8 +176,8 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
 if __name__ == "__main__":
 
     db_config_path = os.path.join(RES_FOLDER_PATH, DB_CONFIG_FILE_NAME)
-    run(db_config_path, DB_USER, [("Südvorstadt", 40)], img_type="cyclo", result_table_name="parking_cyclomedia")
-    #run(db_config_path, DB_USER, [("Südvorstadt", 40)], img_type="air", result_table_name="parking_air")
+    #run(db_config_path, DB_USER, [("Südvorstadt", 40)], img_type="cyclo", result_table_name="parking_cyclomedia")
+    run(db_config_path, DB_USER, [("Südvorstadt", 40)], img_type="air", result_table_name="parking_air")
 
 
 #https://atlas.cyclomedia.com/PanoramaRendering/Render/WE4IK5SE/?apiKey=2_4lO_8ZuXEBuXY5m7oVWzE1KX41mvcd-PQZ2vElan85eLY9CPsdCLstCvYRWrQ5&srsName=epsg:55567837&direction=0&hfov=80

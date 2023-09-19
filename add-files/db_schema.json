@@ -39,12 +39,12 @@
             {"name": "segment_id", "type": "int", "references": "segments"},
             {"name": "segmentation_number", "type": "int"},
             {"name": "iteration_number", "type": "int"},
-            {"name": "parking", "type": "text"},
+            {"name": "parking_side", "type": "text"},
             {"name": "value", "type": "text"},
             {"name": "percentage", "type": "float8"}
         ],
         "constraints": {
-            "primaryKey": ["segment_id", "segmentation_number", "iteration_number", "parking"]
+            "primaryKey": ["segment_id", "segmentation_number", "iteration_number", "parking_side"]
         }
     },
     {
@@ -53,12 +53,12 @@
             {"name": "segment_id", "type": "int", "references": "segments"},
             {"name": "segmentation_number", "type": "int"},
             {"name": "iteration_number", "type": "int"},
-            {"name": "parking", "type": "text"},
+            {"name": "parking_side", "type": "text"},
             {"name": "value", "type": "text"},
             {"name": "percentage", "type": "float8"}
         ],
         "constraints": {
-            "primaryKey": ["segment_id", "segmentation_number", "iteration_number", "parking"]
+            "primaryKey": ["segment_id", "segmentation_number", "iteration_number", "parking_side"]
         }
     },
     {
@@ -66,12 +66,12 @@
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
             {"name": "segmentation_number", "type": "int"},
-            {"name": "parking", "type": "text"},
+            {"name": "parking_side", "type": "text"},
             {"name": "value", "type": "text"},
             {"name": "percentage", "type": "float8"}
         ],
         "constraints": {
-            "primaryKey": ["segment_id", "segmentation_number", "parking"]
+            "primaryKey": ["segment_id", "segmentation_number", "parking_side"]
         }
     },
     {

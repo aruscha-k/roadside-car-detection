@@ -51,10 +51,10 @@ def fetch_parking_results_per_segment(cursor, segment_id:int):
     """
     
     result_dict = dict()
-    cursor.execute("""SELECT segmentation_number, iteration_number, parking, value, percentage FROM parking_cyclomedia WHERE segment_id = %s ORDER BY segmentation_number ASC""", (segment_id, ))
+    cursor.execute("""SELECT segmentation_number, iteration_number, parking_side, value, percentage FROM parking_cyclomedia WHERE segment_id = %s ORDER BY segmentation_number ASC""", (segment_id, ))
     cyclo = cursor.fetchall()
 
-    cursor.execute("""SELECT segmentation_number, iteration_number, parking, value, percentage FROM parking_air WHERE segment_id = %s ORDER BY segmentation_number ASC""", (segment_id, ))
+    cursor.execute("""SELECT segmentation_number, iteration_number, parking_side, value, percentage FROM parking_air WHERE segment_id = %s ORDER BY segmentation_number ASC""", (segment_id, ))
     air = cursor.fetchall()
 
     # check that both tables have the same number of entries for all iterations
