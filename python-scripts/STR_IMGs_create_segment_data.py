@@ -167,17 +167,17 @@ def get_image_IDs_from_cyclomedia(segment_id:int, segmentation_number:int, rec_I
             # calc distance between streeet and recording point, if too large, cyclomedia didnt drive through the street
             distance = calulate_distance_of_two_coords(item['recording_point'], item['street_point'])
 
-            # if distance > max_distance:
-            #     print("[!!!] MAX DIST not saving image")
-            #     item['recording_id'] = ec.CYCLO_MAX_DIST
-            #     item['recording_point'] = (0,0) 
-            #     continue    
+            if distance > max_distance:
+                print("[!!!] MAX DIST not saving image")
+                item['recording_id'] = ec.CYCLO_MAX_DIST
+                item['recording_point'] = (0,0) 
+                continue    
         
-            # else:
+            else:
 
-                # img_file_name = str(segment_id) + "_" + str(segmentation_number) + "_" + str(item['recording_id']) + ".jpg"
-                # with open(folder_dir + img_file_name, 'wb') as file:
-                #     file.write(response.content)
+                img_file_name = str(segment_id) + "_" + str(segmentation_number) + "_" + str(item['recording_id']) + ".jpg"
+                with open(folder_dir + img_file_name, 'wb') as file:
+                    file.write(response.content)
             
         else:
             print(f"[!!!] BAD STATUSCODE: for image with id: {item['recording_id']}")
@@ -262,9 +262,9 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, get_sideways_imgs):
                 cursor.execute("""SELECT array_agg(segmentation_number) FROM segments_cyclomedia WHERE segment_id = %s GROUP BY segmentation_number""", (segment_id, ))
                 cyclo_result_rows = cursor.fetchall()
                 
-                # if len(cyclo_result_rows) == len(segmentation_result_rows): 
-                #     print("EXIST - SKIP")
-                #     continue
+                if len(cyclo_result_rows) == len(segmentation_result_rows): 
+                    print("EXIST - SKIP")
+                    continue
                 
                 cursor.execute("""SELECT multiple_areas FROM area_segment_relation WHERE segment_id = %s""", (segment_id, ))
                 multiple_areas = cursor.fetchone()
@@ -292,7 +292,7 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, get_sideways_imgs):
        
                         rec_IDs = get_nearest_recordings_for_street_pts((start_lat, start_lon), (end_lat, end_lon), shift_length, slope_origin, [])
                         rec_IDs = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = rec_IDs, north_deviation = north_deviation, max_distance = 9, folder_dir=PATHS.CYCLO_IMG_FOLDER_PATH)
-                        # load_into_db(rec_IDs=rec_IDs, segment_id = segment_id, segmentation_number=segmentation_number, connection=con)
+                        load_into_db(rec_IDs=rec_IDs, segment_id = segment_id, segmentation_number=segmentation_number, connection=con)
 
                         # if get_sideways_imgs: #TODO
                         #     # right side??
@@ -313,8 +313,7 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, get_sideways_imgs):
        
                             rec_IDs = get_nearest_recordings_for_street_pts((start_lat, start_lon), (end_lat, end_lon), shift_length, slope_origin, [])
                             rec_IDs = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = rec_IDs, north_deviation = north_deviation, max_distance = 9, folder_dir=PATHS.CYCLO_IMG_FOLDER_PATH)
-
-                            # load_into_db(rec_IDs=rec_IDs, segment_id=segment_id, segmentation_number=segmentation_number, connection=con)
+                            load_into_db(rec_IDs=rec_IDs, segment_id=segment_id, segmentation_number=segmentation_number, connection=con)
 
                             # if get_sideways_imgs: # TODO
                             #     # right side??
@@ -328,4 +327,4 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, get_sideways_imgs):
 if __name__ == "__main__":
     config_path = f'{RES_FOLDER_PATH}/{DB_CONFIG_FILE_NAME}'
                                                     #suburb list = tuple (sstr, int)
-    get_cyclomedia_data(config_path, PATHS.DB_USER, suburb_list=[("Volkmarsdorf", 70)], get_sideways_imgs = False)
+    get_cyclomedia_data(config_path, PATHS.DB_USER, suburb_list=[("Südvorstadt", 70)], get_sideways_imgs = False)
