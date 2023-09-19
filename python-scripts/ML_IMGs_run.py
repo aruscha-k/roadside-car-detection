@@ -12,6 +12,14 @@ import psycopg2
 
 
 def log(img_type, logstart, logtime, message: str):
+    """ function to log if something didnt work
+
+    Args:
+        img_type (str): air / cyclo
+        logstart (python time): start time of run
+        logtime (python time): time of error
+        message (str): message specified by user
+    """
     log_file_name = str(logstart) + "_" + str(img_type) + ".txt"
     log_file = os.path.join(LOG_FILES, log_file_name)
     if os.path.exists(log_file):
@@ -22,8 +30,21 @@ def log(img_type, logstart, logtime, message: str):
             lfile.write(logtime.strftime('%Y-%m-%d %H:%M:%S')  + ' ' + message +  '\n')
 
 
-# helper method to check, if an image exists and to log in file if it doenst exist
 def add_image_to_list(img_folder, img_file, img_position_information, img_path_and_position_list, img_type, log_start, segment_id):
+    """helper method to check, if image for ML detection exists and to log in file if it doenst exist
+
+    Args:
+        img_folder (str): folder path
+        img_file (str): img name
+        img_position_information (list or tuple): bbox of segment poly (list for air) or recording lat /lon (tuple for cyclo)
+        img_path_and_position_list (list): list to add image to if exists
+        img_type (str): air or cyclo
+        log_start (python time): time for log
+        segment_id (int): segment ID 
+
+    Returns:
+        list: list with or without the checked image file
+    """
     if os.path.exists(os.path.join(img_folder, img_file)):
         img_path_and_position_list.append((img_file, img_position_information))
         return img_path_and_position_list
@@ -33,12 +54,18 @@ def add_image_to_list(img_folder, img_file, img_position_information, img_path_a
         return img_path_and_position_list
 
 
-# get images to use ML detection on 
-# for each iteration determine parking for all the images found
-# method has possibility to submit a specific suburb
-# iterate all segments in suburb and, for each segment fetch all iteration steps (bounding boxes). for each box, check which record IDs lie within and run ML on them
-# fetch all record IDs. for each record ID fetch the path where it is saved
 def run(db_config, db_user, suburb_list, img_type, result_table_name):
+    """ run methods to get images, use ML detection and write results to DB
+        iterate all segments in suburb and, for each segment fetch all iteration steps (bounding boxes). for each box, check which record IDs (cyclo) / detected cars (air) lie within and run ML on them
+        write result to DB
+    Args:
+        db_config (str): path to config file
+        db_user (str): DB user to log in
+        suburb_list (list of tuples): (ot_name, ot_nummer)
+        img_type (str): air or cyclo
+        result_table_name (str): the table of the DB to write into
+    """
+    
     log_start = datetime.now()
     with open_connection(db_config, db_user) as con:
         
@@ -149,8 +176,8 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
 if __name__ == "__main__":
 
     db_config_path = os.path.join(RES_FOLDER_PATH, DB_CONFIG_FILE_NAME)
-    #run(db_config_path, DB_USER, [("Südvorstadt", 40)], img_type="cyclo", result_table_name="parking_cyclomedia")
-    run(db_config_path, DB_USER, [("Südvorstadt", 40)], img_type="air", result_table_name="parking_air")
+    run(db_config_path, DB_USER, [("Südvorstadt", 40)], img_type="cyclo", result_table_name="parking_cyclomedia")
+    #run(db_config_path, DB_USER, [("Südvorstadt", 40)], img_type="air", result_table_name="parking_air")
 
 
 #https://atlas.cyclomedia.com/PanoramaRendering/Render/WE4IK5SE/?apiKey=2_4lO_8ZuXEBuXY5m7oVWzE1KX41mvcd-PQZ2vElan85eLY9CPsdCLstCvYRWrQ5&srsName=epsg:55567837&direction=0&hfov=80
