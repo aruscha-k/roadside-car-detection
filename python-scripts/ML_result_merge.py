@@ -38,29 +38,34 @@ def populate_db_result_dict(db_results, img_type, result_dict):
     return result_dict
 
 
-def fetch_parking_results_per_segment(cursor, segment_id:int):
+def fetch_parking_results_per_segment(cursor, segment_id:int, img_type):
     """ HELPER method to fetch ML results for each iteration within one segment
 
     Args:
         cursor (DB cursor): 
         segment_id (int): segment_id to fetch results for
+        img_type (string): if only onetype of images should be used pass either air / cyclo, if both should be used pass empty string
 
     Returns:
         dict: key = dict (key segmentation_number): (dict (key iteration number) (dict (key parking side) list))
         {<segmentation_number>: {iteration_number: {'left': [{'cyclo': ('parallel', percentage)}, {'air': ('kein Auto', 100.0)}], 'right': [{'cyclo': ('parallel', 100.0)}]}, iteration_number+1: {...}
     """
-    
+    cyclo, air = [], []
     result_dict = dict()
-    cursor.execute("""SELECT segmentation_number, iteration_number, parking_side, value, percentage FROM parking_cyclomedia WHERE segment_id = %s ORDER BY segmentation_number ASC""", (segment_id, ))
-    cyclo = cursor.fetchall()
 
-    cursor.execute("""SELECT segmentation_number, iteration_number, parking_side, value, percentage FROM parking_air WHERE segment_id = %s ORDER BY segmentation_number ASC""", (segment_id, ))
-    air = cursor.fetchall()
+    if img_type == "" or img_type == "cyclo":
+        cursor.execute("""SELECT segmentation_number, iteration_number, parking_side, value, percentage FROM parking_cyclomedia WHERE segment_id = %s ORDER BY segmentation_number ASC""", (segment_id, ))
+        cyclo = cursor.fetchall()
+
+    if img_type == "" or img_type == "air":
+        cursor.execute("""SELECT segmentation_number, iteration_number, parking_side, value, percentage FROM parking_air WHERE segment_id = %s ORDER BY segmentation_number ASC""", (segment_id, ))
+        air = cursor.fetchall()
 
     # check that both tables have the same number of entries for all iterations
     if len(air) != len(cyclo):
         print("[!] Not same amount of entries in cyclo and air in segmet id: Len air:", len(air), "len cyclo:", len(cyclo))
-        #TODO LOG
+       # if img_type != "":
+            #TODO LOG
 
     result_dict = {}
     if len(air) != 0:
@@ -201,10 +206,13 @@ def compare_iteration_values(segmentation_result_dict, parking_side):
                 return next_most_common_parking_value, next_most_common_avg
             elif next_most_common_parking_value == "kein Auto":
                 return most_common_parking_value, most_common_avg
+            else:
+                #TODO if both have same avg percentage and none of them is "kein auto" which to chose?!
+                return most_common_parking_value, most_common_avg
 
 
 
-def run(db_config, db_user, suburb_list):
+def run(db_config, db_user, suburb_list, img_type):
     """ Method to merge parking results fro cyclomedia and air images for a specific suburb (list):
         iterate all suburbs -> get all segment ids per suburb -> 
 
@@ -226,7 +234,7 @@ def run(db_config, db_user, suburb_list):
             for idx, segment_id in enumerate(segment_ids):
                 print("----segment id: ",segment_id, " - Number", idx+1, "of ", len(segment_ids))
 
-                segment_parking_results = fetch_parking_results_per_segment(cursor, segment_id)
+                segment_parking_results = fetch_parking_results_per_segment(cursor, segment_id, img_type=img_type)
                 
                 if segment_parking_results != {}:
 
@@ -249,4 +257,4 @@ def run(db_config, db_user, suburb_list):
 
 if __name__ == "__main__":
     db_config = os.path.join(RES_FOLDER_PATH, DB_CONFIG_FILE_NAME)
-    run(db_config, DB_USER, [("Südvorstadt", 40)])
+    run(db_config, DB_USER, [("Südvorstadt", 40)], img_type="")
