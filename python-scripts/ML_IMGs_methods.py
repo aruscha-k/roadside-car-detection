@@ -113,7 +113,12 @@ def transform_air_img(img_file, img_bbox, out_file_type):
     """
     img_file_name = img_file[:-4]
     in_tif = AIR_TEMP_CROPPED_FOLDER_PATH + img_file_name + ".tif"
+    if not os.path.exists(in_tif):
+        print("[!] ERROR when tranforming air img: path not found for in_tif")
+        # TODO LOG
+        return
     out_file = AIR_CROPPED_ROTATED_FOLDER_PATH + img_file_name + out_file_type
+    
     transform_matrix, tiff_matrix = transform_geotif_to_north(in_tif= in_tif, out_file= out_file, out_file_type = out_file_type, bbox = img_bbox)
     return transform_matrix, tiff_matrix, out_file
 
@@ -245,14 +250,19 @@ def run_detection(img_path_and_position_list, img_type, iter_information_dict):
         bbox = img_path_and_position_list[0][1]
 
         transform_matrix, tiff_matrix, out_img_path = transform_air_img(img_file_name, bbox, out_file_type=".tif")
+
         cropped_rotated_img = cv2.imread(out_img_path)
+        if cropped_rotated_img is None:
+            print("[!] ERROR: CV2 could not open img file - RETURN empty dict")
+            #TODO LOG
+            return {}
         outputs = predictor(cropped_rotated_img)
         instances = outputs["instances"].to("cpu")
         
         if len(instances) > 2:
             instances = remove_unparked_cars_for_air(instances)
 
-        visualize_prediction(out_img_path, "air")
+        #visualize_prediction(out_img_path, "air")
         bboxes = instances.pred_boxes.tensor.cpu().numpy()
         classes = instances.pred_classes.cpu().numpy()
         

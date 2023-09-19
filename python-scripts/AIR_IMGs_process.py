@@ -122,7 +122,6 @@ def transform_geotif_to_north(in_tif, out_file, out_file_type, bbox):
     transform_matrix, w, h = get_perspective_transform(img, corners)
     transformed_image = cv2.warpPerspective(img, transform_matrix, (w, h))
     
-    out_file = out_file + out_file_type
     if out_file_type == ".tif":
         save_transformed_tiff(transformed_image, out_file, meta)
 
