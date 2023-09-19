@@ -298,17 +298,17 @@ def run_detection(img_path_and_position_list, img_type, iter_information_dict):
             all_left, all_right = assign_left_right(cropped_rotated_img, bboxes, classes)
       
             #check which of the boxes lie within centerpoints lie within the current iteration window
-            right = [pred_class for box, pred_class in all_right if is_car_within_polygon(box, transformed_poly_points)]
-            left = [pred_class for box, pred_class in all_left if is_car_within_polygon(box, transformed_poly_points)]
+            right = [(box, pred_class) for box, pred_class in all_right if is_car_within_polygon(box, transformed_poly_points)]
+            left = [(box, pred_class) for box, pred_class in all_left if is_car_within_polygon(box, transformed_poly_points)]
 
-            # [!] if you wanna draw assigned classes, change above to left = [(box, pred_class)  ....
-            # draw_assigned_classes(left, right, transformed_poly_points, out_img_path)
+            #draw_assigned_classes_in_air_imgs(left, right, transformed_poly_points, out_img_path)
 
-            predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = "left", predicted_classes_for_side = left, predictions = predictions[iteration_number])
-            predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = "right", predicted_classes_for_side = right, predictions = predictions[iteration_number])
+            predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = "left", predicted_classes_for_side = [item[1] for item in left], predictions = predictions[iteration_number])
+            predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = "right", predicted_classes_for_side = [item[1] for item in right], predictions = predictions[iteration_number])
                              
     # for all predictions, calculate the parking
     parking_dict =  calculate_parking(predictions, img_type)
+    print(parking_dict)
 
     return parking_dict
 
@@ -362,7 +362,7 @@ def visualize_prediction(filename, img_type):
 
 
 
-def draw_assigned_classes(left, right, poly, img_path):
+def draw_assigned_classes_in_air_imgs(left, right, poly, img_path):
     from PIL import Image
     from matplotlib import pyplot as plt 
 
