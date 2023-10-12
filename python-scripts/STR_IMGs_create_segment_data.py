@@ -11,8 +11,15 @@ import PATH_CONFIGS as PATHS
 import psycopg2
 
 
-# helper-func: check if all entries in recording ID list are just errors, if yes return True
 def check_for_only_error_values(rec_IDs):
+    """helper-func: check if all entries in recording ID list are just errors, if yes return True
+
+    Args:
+        rec_IDs (list): of cyclomedia recording ids
+
+    Returns:
+        bool: if list consists only of error codes, return True
+    """
     rec_IDs_with_error = [item['recording_id'] for item in rec_IDs if item['recording_id'] == ec.CYCLO_NO_REC_ID_SINGLE]
     if len(rec_IDs_with_error) == len(rec_IDs):
         return True
@@ -98,12 +105,20 @@ def get_nearest_recordings_for_street_pts(str_start: tuple, str_end:tuple, shift
     return rec_IDs
 
 
-# NEW: calculate shortest_angular_distance between cyclomedia recording direction angle and street north deviation angle
-# if between specified range return True, else False
 def is_recording_direction_equal_street_direction(viewing_direction, street_north_deviation):
+    """calculate shortest_angular_distance between cyclomedia recording direction angle and street north deviation angle
+        if between specified range return True, else False
+
+    Args:
+        viewing_direction (float): viewing direction of cyclomedia car
+        street_north_deviation (float): street deviation from north 
+
+    Returns:
+        bool: True if they point "in the same direction", else false
+    """
     # Calculate the absolute difference between the angles
     abs_diff = abs(viewing_direction - street_north_deviation)
-    print("viewing_direction: ", viewing_direction, street_north_deviation)
+    #print("viewing_direction: ", viewing_direction, street_north_deviation)
     
     # Check for wraparound
     if abs_diff > 180:
@@ -154,12 +169,12 @@ def get_image_IDs_from_cyclomedia(segment_id:int, segmentation_number:int, rec_I
             params = {'yaw': str(viewing_direction), 'hfov': '80'}
 
         if not equal_direction:
-            print("NOT EQUAL:", segment_id, item['recording_id'])
+            #print("NOT EQUAL:", segment_id, item['recording_id'])
             #direction 90/-90 would be on the right/left side of the car
             viewing_direction += 180
             params = {'yaw': str(viewing_direction), 'hfov': '80'}
 
-        response, recording_lat, recording_lon = render_by_ID(CONF.cyclo_srs, item['recording_id'], params, True)
+        response, recording_lat, recording_lon = render_by_ID(CONF.cyclo_srs, item['recording_id'], params, False)
         item['recording_point'] = (recording_lat, recording_lon)
 
         if response.status_code == 200:
@@ -327,4 +342,4 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, get_sideways_imgs):
 if __name__ == "__main__":
     config_path = f'{RES_FOLDER_PATH}/{DB_CONFIG_FILE_NAME}'
                                                     #suburb list = tuple (sstr, int)
-    get_cyclomedia_data(config_path, PATHS.DB_USER, suburb_list=[("Südvorstadt", 70)], get_sideways_imgs = False)
+    get_cyclomedia_data(config_path, PATHS.DB_USER, suburb_list=[], get_sideways_imgs = False)
