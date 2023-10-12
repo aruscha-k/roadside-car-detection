@@ -19,7 +19,10 @@ DB_USER_ARUSCHA = os.path.join(RES_FOLDER_PATH, 'db_aruscha.json')
 DB_USER = DB_USER_ARUSCHA
 
 # ------ img resources --------#
-IMG_FOLDER_PATH = "./imgs/"
+#IMG_FOLDER_PATH = "./imgs/"
+extern_IMG_FOLDER_PATH = "/Volumes/CUT-PARKPLATZ/imgs/"
+IMG_FOLDER_PATH = extern_IMG_FOLDER_PATH
+
 if not os.path.exists(IMG_FOLDER_PATH):
     os.mkdir(IMG_FOLDER_PATH)
 
