@@ -4,11 +4,15 @@ from DB_helpers import open_connection
 from helpers_geometry import calculate_street_deviation_from_north, find_angle_to_x, get_y_intercept, segment_iteration_condition, calculate_slope
 from helpers_coordiantes import calulate_distance_of_two_coords, shift_pt_along_street
 from STR_IMGs_api_calls import list_nearest_recordings, get_recording_id, render_by_ID, get_viewing_direction
-
+from LOG import log
 import STR_IMGs_config as CONF
 import PATH_CONFIGS as PATHS
 
 import psycopg2
+from datetime import datetime
+
+log_start = None
+execution_file = "STR_IMGs_create_segment_data"
 
 
 def check_for_only_error_values(rec_IDs):
@@ -146,17 +150,9 @@ def get_image_IDs_from_cyclomedia(segment_id:int, segmentation_number:int, rec_I
         segmentation_number = "0" + str(segmentation_number)
 
     for idx, item in enumerate(rec_IDs):
-
-        # TODO GET CYCLOMEDIA RECORDING DIRECTION
-        # for the cyclomedia api the y_angle gives the deviation from north direction. yaw = 0 => looking towards north,
-        # for streets with falling slope the y_angle is measured "on the other side" therefore it is not represention the deivation from north without adding 90
-        # if slope_origin < 0:
-        #     y_angle = (90-y_angle) + 90
-        # elif slope_origin > 0:
-        #     y_angle = y_angle
-        
-
+   
         if item['recording_id'] == ec.CYCLO_NO_REC_ID_SINGLE:
+            log(execution_file=execution_file, img_type="cyclo", logstart=log_start, logtime=datetime.now(), message= f"No recording ID for segment: {segment_id}, error code: {ec.CYCLO_NO_REC_ID_SINGLE}")
             item['recording_point'] = (0,0)
             continue
 
@@ -186,6 +182,7 @@ def get_image_IDs_from_cyclomedia(segment_id:int, segmentation_number:int, rec_I
                 print("[!!!] MAX DIST not saving image")
                 item['recording_id'] = ec.CYCLO_MAX_DIST
                 item['recording_point'] = (0,0) 
+                log(execution_file=execution_file, img_type="cyclo", logstart=log_start, logtime=datetime.now(), message= f"MAX distance for segment: {segment_id}, error code: {ec.CYCLO_MAX_DIST}")
                 continue    
         
             else:
@@ -196,6 +193,7 @@ def get_image_IDs_from_cyclomedia(segment_id:int, segmentation_number:int, rec_I
             
         else:
             print(f"[!!!] BAD STATUSCODE: for image with id: {item['recording_id']}")
+            log(execution_file=execution_file, img_type="cyclo", logstart=log_start, logtime=datetime.now(), message= f"Bad cyclomedia status code for segment: {segment_id}, error code: {ec.CYCLO_BAD_RESPONSE_CODE}")
             item['recording_id'] = ec.CYCLO_BAD_RESPONSE_CODE
             item['recording_point'] = (0,0)
             continue
@@ -215,6 +213,7 @@ def load_into_db(rec_IDs, segment_id, segmentation_number, connection):
     if check_for_only_error_values(rec_IDs):
         try:
             cursor.execute("""INSERT INTO segments_cyclomedia VALUES (%s, %s, %s, %s, %s, %s) """, (segment_id, ec.CYCLO_NO_REC_ID_TOTAL, segmentation_number, 0, 0, 0,))
+            log(execution_file=execution_file, img_type="cyclo", logstart=log_start, logtime=datetime.now(), message= f"Only Error codes for segment: {segment_id}")
             connection.commit()
         except psycopg2.errors.UniqueViolation:
             print(f"Value already in table. segment {segment_id}, segmentation number {segmentation_number}")
@@ -239,6 +238,9 @@ def load_into_db(rec_IDs, segment_id, segmentation_number, connection):
 #  get_sideways_imgs (bool) if for each recording point the sideways direction of 90/-90 should be extracted as well (takes 3 times longer)
 def get_cyclomedia_data(db_config, db_user, suburb_list, get_sideways_imgs):
     print("getting cyclomedia data...")
+    global log_start 
+    log_start = datetime.now()
+
     with open_connection(db_config, db_user) as con:
 
         cursor = con.cursor()
@@ -262,6 +264,7 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, get_sideways_imgs):
                 #TODO: sollte nicht mehr auftreten nach einführung von error codes
                 if segmentation_result_rows == []:
                     print("NO RESULT FOR ID %s", segment_id)
+                    log(execution_file=execution_file, img_type="cyclo", logstart=log_start, logtime=datetime.now(), message= f"No segmentation results for segment: {segment_id}")
                     continue
 
                 # check if information is valid #TODO zusammenführen
@@ -270,6 +273,7 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, get_sideways_imgs):
                     if segmentation_no == ec.WRONG_COORD_SORTING:
                         rec_IDs = [{'recording_id': ec.WRONG_COORD_SORTING, 'street_point': (0,0), 'recording_point': (0,0), 'recording_year': 0}]
                         load_into_db(rec_IDs=rec_IDs, segment_id=segment_id, segmentation_number=segmentation_no, connection=con)
+                        log(execution_file=execution_file, img_type="cyclo", logstart=log_start, logtime=datetime.now(), message= f"Wrong coord sorting for segment: {segment_id}")
                         print("[!] information invalid - skip")
                         continue
 
@@ -281,16 +285,19 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, get_sideways_imgs):
                     print("EXIST - SKIP")
                     continue
                 
+                #TODO implement error codes
                 cursor.execute("""SELECT multiple_areas FROM area_segment_relation WHERE segment_id = %s""", (segment_id, ))
                 multiple_areas = cursor.fetchone()
                 
                 if multiple_areas is None:
                     print("[!!!] no information about traffic area - skip")
+                    log(execution_file=execution_file, img_type="cyclo", logstart=log_start, logtime=datetime.now(), message= f"No traffic area information for segment: {segment_id}")
                     continue
 
                 elif multiple_areas[0] == True:
                     print("[!!!] multiple traffic areas - skip")
-                    #TODO!
+                    log(execution_file=execution_file, img_type="cyclo", logstart=log_start, logtime=datetime.now(), message= f"Multiple traffic areas for segment: {segment_id}")
+                    #TODO implement multiple traffic areas?
                     continue
 
                 elif multiple_areas[0] == False:
