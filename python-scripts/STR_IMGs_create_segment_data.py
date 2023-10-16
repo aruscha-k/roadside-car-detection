@@ -235,7 +235,7 @@ def load_into_db(rec_IDs, segment_id, segmentation_number, connection):
 
 # main function to collect all data and get images from cyclomedia
 # PARAMS:
-#  suburb_list = [(ot_name, ot_nr), ..], in this case ot_nr is not relevant and can be 0 all the time
+#  suburb_list = [ot_name, ..], in this case ot_nr is not relevant
 #  get_sideways_imgs (bool) if for each recording point the sideways direction of 90/-90 should be extracted as well (takes 3 times longer)
 def get_cyclomedia_data(db_config, db_user, suburb_list, get_sideways_imgs):
     print("getting cyclomedia data...")
@@ -244,10 +244,10 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, get_sideways_imgs):
         cursor = con.cursor()
         if suburb_list == []:
              # get ortsteile and their number codes
-            cursor.execute("""SELECT ot_name, ot_nr FROM ortsteile""")
+            cursor.execute("""SELECT ot_name FROM ortsteile""")
             suburb_list = cursor.fetchall()
         
-        for ot_name, ot_nr in suburb_list:
+        for ot_name in suburb_list:
             print("getting cyclomedia data for ", ot_name)
 
             cursor.execute("""SELECT id FROM segments WHERE ot_name = %s""", (ot_name, ))
