@@ -4,8 +4,13 @@ from DB_helpers import open_connection
 from helpers_geometry import calculate_start_end_pt, calculate_bounding_box, find_angle_to_x, calculate_slope, get_y_intercept, segment_iteration_condition
 from helpers_coordiantes import convert_coords, sort_coords, shift_pt_along_street
 from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, DB_USER
+from LOG import log
 
 import json
+from datetime import datetime
+
+log_start = None
+execution_file = "DB_create_relations"
 
 def create_segm_gid_relation(db_config, db_user):
     print('Creating area_segment_relation table ....')
@@ -73,11 +78,19 @@ def create_iteration_boxes(str_start, str_end, width):
 
  # get width of street segment
 def get_traffic_area_width(segm_gid, cursor):
+    """ gets width for a segment id, checks if the segment consists of several traffic areas 
+        Args:
+        segm_gid (int): another ID for segments that the connects segments to traffic areas
+        cursor (db cursor): 
+        
+    Returns:
+        width (float): real number if width avaiable, error code if not (! string)
+    """
 
     cursor.execute("""SELECT multiple_areas from area_segment_relation WHERE segm_gid =  %s""", (segm_gid, ))
     res = cursor.fetchone()
     if res == None:
-        return 0
+        return ec.NO_TRAFFIC_AREA_INFO
     
     multiple_areas = res[0]
     if not multiple_areas:
@@ -141,6 +154,8 @@ def write_street_sides_to_DB(cursor, con, iteration_boxes, segment_id, segmentat
 # for every segment add information if it is segmented and if yes the specific start end coordinates of the segmented segment to a table segments_segmentation
 def create_segmentation_and_iteration(db_config, db_user):
     print('Creating segmentations and iteration boxes....')
+    global log_start
+    log_start = datetime.now()
 
     with open_connection(db_config, db_user) as con:
         cursor = con.cursor()
@@ -164,17 +179,16 @@ def create_segmentation_and_iteration(db_config, db_user):
                 if sorted_coords != []:
                     sorted_coords = [convert_coords("EPSG:4326", "EPSG:25833", pt[0], pt[1]) for pt in sorted_coords]
                 else:
+                    log(execution_file=execution_file, img_type="", logstart=log_start, logtime=datetime.now(), message= f"Wrong coord sorting for segment: {segment_id}")
                     write_segmentation_values_to_DB(cursor, con, segment_id, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING)
                     continue
 
                 width = get_traffic_area_width(segm_gid, cursor)
-                if width == ec.NO_WIDTH or width == ec.MULTIPLE_TRAFFIC_AREAS:
-                        print("[!!] ERROR CODE: No width for segment or multiple traffic areas: ", segm_gid)
+                if width == ec.NO_WIDTH or width == ec.MULTIPLE_TRAFFIC_AREAS or width == ec.NO_TRAFFIC_AREA_INFO:
+                        log(execution_file=execution_file, img_type="", logstart=log_start, logtime=datetime.now(), message= f"No width for segment: {segment_id}, error code: {width}")
+                        print("[!!] ERROR CODE: No width for segment or multiple traffic areas: ", segment_id, "error code: ", width)
                         write_segmentation_values_to_DB(cursor, con, segment_id, width, width, width, width, width, width)
                         continue
-                
-                if width == 0:
-                    print("[!] SKIP: No width information")
 
                 # if more than two coordinates, street has a bend => 
                 # partition the segment further and extract every two pairs of coordinate
