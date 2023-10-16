@@ -7,7 +7,6 @@ from helpers_geometry import calculate_quadrant_from_center
 
 def convert_coords(from_epsg, to_epsg, lat, lon):
     """ convert one coordante point from / to different EPSGs
-        # pyproj expects the input in the order of (longitude, latitude); always_xy switches that to (lat,lon)
     Args:
         from_epsg (string): epsg number described in PyProj (e.g. "EPSG:25833")
         to_epsg (string): epsg number described in PyProj (e.g. "EPSG:25833")

@@ -281,7 +281,7 @@ def calculate_slope(linepts: list):
 
 
 def get_y_intercept(pt, slope):
-    """given a point and a slope of a line, calculate the y-intercept of the line
+    """given a point and a slope of a line, calculate the y-intercept of the line using line formula y = mx+b converted to b = ..
 
     Args:
         pt (tuple): pt in the line
@@ -290,7 +290,10 @@ def get_y_intercept(pt, slope):
     Returns:
         float: y value of y-intercept 
     """
-    b = (-pt[0] * slope) + pt[1]
+    if slope == None:
+        b = 0
+    else:
+        b = (-pt[0] * slope) + pt[1]
     return b
 
 
