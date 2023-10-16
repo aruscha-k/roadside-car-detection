@@ -169,7 +169,7 @@ def cut_out_shape(bbox, out_tif, in_tif):
             out_meta = src.meta
         except ValueError as e:
             print(e)
-            return False
+            return False, e
 
     out_meta.update({"driver": "GTiff",
                  "height": out_image.shape[1],
@@ -178,7 +178,7 @@ def cut_out_shape(bbox, out_tif, in_tif):
 
     with rasterio.open(out_tif, "w", **out_meta) as dest:
         dest.write(out_image)
-    return True
+    return True, "success"
 
 
 def is_car_within_polygon(car_bbox, polygon_coordinates):
