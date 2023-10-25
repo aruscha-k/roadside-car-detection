@@ -20,7 +20,7 @@ def add_image_to_list(img_folder, img_file, img_position_information, img_path_a
     """helper method to check, if image for ML detection exists and to log in file if it doenst exist
 
     Args:
-        img_folder (str): folder path
+        img_folder (str): folder path to use for ML detection
         img_file (str): img name
         img_position_information (list or tuple): bbox of segment poly (list for air) or recording lat /lon (tuple for cyclo)
         img_path_and_position_list (list): list to add image to if exists
@@ -61,6 +61,16 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
              # get ortsteile and their number codes
             cursor.execute("""SELECT ot_name, ot_nr FROM ortsteile""")
             suburb_list = cursor.fetchall()
+        else:
+            suburb_with_nr = []
+            for ot_name in suburb_list:
+                cursor.execute("""SELECT ot_nr FROM ortsteile WHERE ot_name = %s""", (ot_name, ))
+                ot_nr = cursor.fetchone()
+                if ot_nr == None:
+                    print(f"[!] No ot_nr found for {ot_name}. CHECK SPELLING?")
+                else:
+                    suburb_with_nr.append((ot_name, ot_nr[0]))
+            suburb_list = suburb_with_nr
         
         for ot_name, ot_nr in suburb_list:
             print("[i] Getting Segments in ", ot_name)
@@ -145,25 +155,25 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
 
                         parking_dict = run_detection(img_path_and_position_list, img_type, iter_information)
 
-                        # write to DB # parking_dict = {iteration_number: {'left': (parking, percentage), 'right': (parking, percentage)}}
-                        for iteration_number, value in parking_dict.items():
-                            for side, (parking, percentage) in value.items():
-                                try:
-                                    cursor.execute("""INSERT INTO {} VALUES (%s, %s, %s, %s, %s, %s)""".format(result_table_name), (segment_id, segmentation_number, iteration_number, side, parking, percentage,))
-                                    con.commit()
+                        # # write to DB # parking_dict = {iteration_number: {'left': (parking, percentage), 'right': (parking, percentage)}}
+                        # for iteration_number, value in parking_dict.items():
+                        #     for side, (parking, percentage) in value.items():
+                        #         try:
+                        #             cursor.execute("""INSERT INTO {} VALUES (%s, %s, %s, %s, %s, %s)""".format(result_table_name), (segment_id, segmentation_number, iteration_number, side, parking, percentage,))
+                        #             con.commit()
                                    
-                                except psycopg2.errors.UniqueViolation as e:
-                                    print(e) #TODO LOG?
-                                    con.rollback()
-                                    continue
+                        #         except psycopg2.errors.UniqueViolation as e:
+                        #             print(e) #TODO LOG?
+                        #             con.rollback()
+                        #             continue
 
 
 
 if __name__ == "__main__":
 
     db_config_path = os.path.join(RES_FOLDER_PATH, DB_CONFIG_FILE_NAME)
-    run(db_config_path, DB_USER, [("Südvorstadt", 40)], img_type="cyclo", result_table_name="parking_cyclomedia")
-    run(db_config_path, DB_USER, [("Südvorstadt", 40)], img_type="air", result_table_name="parking_air")
+    #run(db_config_path, DB_USER, [("Südvorstadt", 40)], img_type="cyclo", result_table_name="parking_cyclomedia")
+    run(db_config_path, DB_USER, ["Volkmarsdorf"], img_type="air", result_table_name="parking_air")
 
 
 #https://atlas.cyclomedia.com/PanoramaRendering/Render/WE4IK5SE/?apiKey=2_4lO_8ZuXEBuXY5m7oVWzE1KX41mvcd-PQZ2vElan85eLY9CPsdCLstCvYRWrQ5&srsName=epsg:55567837&direction=0&hfov=80

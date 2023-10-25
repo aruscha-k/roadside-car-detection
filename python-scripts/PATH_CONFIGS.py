@@ -4,8 +4,8 @@ DB_CONFIG_FILE_NAME = "db_config.json"
 LOAD_DATA_CONFIG_NAME = "load_data_config.json"
 
 CYCLO_DETECTION_MODEL = "train2_streetmodel_150img_00025lr_1500bs.pth"
-#AIR_DETECTION_MODEL = "airmodel_final_lr_0_002_BS_8_BSPI_512_ITER_1000_best_so_far.pth"
-AIR_DETECTION_MODEL = "parking_air_LR00023_Maxiter20000_BS3500_totalloss02099.pth"
+AIR_DETECTION_MODEL = "parking_air3_LR00012_Maxiter5000_BS1500_totalloss01728.pth"
+# AIR_DETECTION_MODEL = "parking_air_LR00023_Maxiter20000_BS3500_totalloss02099.pth"
 
 RES_FOLDER_PATH = "./add-files"
 
@@ -13,7 +13,8 @@ LOG_FILES = "./logfiles/"
 if not os.path.exists(LOG_FILES):
     os.mkdir(LOG_FILES)
 
-DATASET_FOLDER_PATH = "datasets/complete"
+DATASET_FOLDER_PATH = "datasets/complete/"
+extern_AIR_IMGS_FOLDER_PATH = "/Volumes/CUT-PARKPLATZ/datasets/"
 
 DB_USER_ARUSCHA = os.path.join(RES_FOLDER_PATH, 'db_aruscha.json')
 DB_USER = DB_USER_ARUSCHA
@@ -24,12 +25,7 @@ extern_IMG_FOLDER_PATH = "/Volumes/CUT-PARKPLATZ/imgs/"
 IMG_FOLDER_PATH = extern_IMG_FOLDER_PATH
 
 if not os.path.exists(IMG_FOLDER_PATH):
-    os.mkdir(IMG_FOLDER_PATH)
-
-DEMO_IMGS_FOLDER_PATH = IMG_FOLDER_PATH + "demo/"
-if not os.path.exists(DEMO_IMGS_FOLDER_PATH):
-    os.mkdir(DEMO_IMGS_FOLDER_PATH)
-    
+    os.mkdir(IMG_FOLDER_PATH)    
     
 CYCLO_IMG_FOLDER_PATH = IMG_FOLDER_PATH + "cyclomedia/"
 if not os.path.exists(CYCLO_IMG_FOLDER_PATH):
@@ -43,6 +39,8 @@ CYCLO_MINUS90_IMG_FOLDER_PATH = IMG_FOLDER_PATH + "cyclomedia-90/"
 if not os.path.exists(CYCLO_MINUS90_IMG_FOLDER_PATH):
     os.mkdir(CYCLO_MINUS90_IMG_FOLDER_PATH)
 
+# --- air ---
+
 AIR_IMG_FOLDER_PATH = IMG_FOLDER_PATH + "air/"
 if not os.path.exists(AIR_IMG_FOLDER_PATH):
     os.mkdir(AIR_IMG_FOLDER_PATH)
@@ -54,6 +52,19 @@ if not os.path.exists(AIR_TEMP_CROPPED_FOLDER_PATH):
 AIR_CROPPED_ROTATED_FOLDER_PATH = AIR_IMG_FOLDER_PATH + "rotated/"
 if not os.path.exists(AIR_CROPPED_ROTATED_FOLDER_PATH):
     os.mkdir(AIR_CROPPED_ROTATED_FOLDER_PATH)
+
+# AIR_TRAIN_FOLDER_PATH = AIR_IMG_FOLDER_PATH + "train/"
+# if not os.path.exists(AIR_TRAIN_FOLDER_PATH):
+#     os.mkdir(AIR_TRAIN_FOLDER_PATH)
+
+AIR_PADDED = AIR_IMG_FOLDER_PATH + "padded/"
+if not os.path.exists(AIR_PADDED):
+    os.mkdir(AIR_PADDED)
+
+# ---  demo ML img ---
+DEMO_IMGS_FOLDER_PATH = IMG_FOLDER_PATH + "demo/"
+if not os.path.exists(DEMO_IMGS_FOLDER_PATH):
+    os.mkdir(DEMO_IMGS_FOLDER_PATH)
 
 DEMO_AIR_DETECTION_FOLDER_PATH = DEMO_IMGS_FOLDER_PATH + "air/"
 if not os.path.exists(DEMO_AIR_DETECTION_FOLDER_PATH):
