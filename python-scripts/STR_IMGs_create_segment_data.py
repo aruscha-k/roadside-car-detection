@@ -1,9 +1,9 @@
 import ERROR_CODES as ec
 from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME
 from DB_helpers import open_connection
-from helpers_geometry import calculate_street_deviation_from_north, find_angle_to_x, get_y_intercept, segment_iteration_condition, calculate_slope
+from helpers_geometry import calculate_street_deviation_from_north, find_angle_to_x, get_y_intercept, segment_iteration_condition, calculate_slope, calculate_bounding_box
 from helpers_coordiantes import calulate_distance_of_two_coords, shift_pt_along_street
-from STR_IMGs_api_calls import list_nearest_recordings, get_recording_id, render_by_ID, get_viewing_direction
+from STR_IMGs_api_calls import list_nearest_recordings, get_recording_id, render_by_ID, get_viewing_direction, list_recordings_in_bbox
 from LOG import log
 import STR_IMGs_config as CONF
 import PATH_CONFIGS as PATHS
@@ -107,6 +107,14 @@ def get_nearest_recordings_for_street_pts(str_start: tuple, str_end:tuple, shift
 
     print(rec_IDs)
     return rec_IDs
+
+
+# def get_recordings_for_segment(bbox): #TODO implement!
+#     recordings = list_recordings_in_bbox(CONF.cyclo_srs, bbox[0], bbox[3])
+
+
+# clean out recordings that deviate too much in time
+# def clean_recordings(recordings): #TODO implement!
 
 
 def is_recording_direction_equal_street_direction(viewing_direction, street_north_deviation):
@@ -254,11 +262,15 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, get_sideways_imgs):
 
             cursor.execute("""SELECT id FROM segments WHERE ot_name = %s""", (ot_name, ))
             segment_id_list = [item[0] for item in cursor.fetchall()]
+            if segment_id_list == []:
+                print("No data for suburb: ", ot_name, "Check spelling?")
+                return
+            
             for i, segment_id in enumerate(segment_id_list):
             
                 print(f"------{i+1} of {len(segment_id_list)+1}, segment_ID: {segment_id}--------")
 
-                cursor.execute("""SELECT segmentation_number, start_lat, start_lon, end_lat, end_lon FROM segments_segmentation WHERE segment_id = %s ORDER BY segmentation_number""", (segment_id, ))
+                cursor.execute("""SELECT segmentation_number, start_lat, start_lon, end_lat, end_lon, width FROM segments_segmentation WHERE segment_id = %s ORDER BY segmentation_number""", (segment_id, ))
                 segmentation_result_rows = cursor.fetchall()
 
                 #TODO: sollte nicht mehr auftreten nach einführung von error codes
@@ -278,9 +290,9 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, get_sideways_imgs):
                         continue
 
                 # check if the data already exists: aggregate all cyclomedia record_ids to the segmentation number and compare with the segmentation number
+                # TODO: doestn work, when segmentation =0) and there is one entry even though there should be more
                 cursor.execute("""SELECT array_agg(segmentation_number) FROM segments_cyclomedia WHERE segment_id = %s GROUP BY segmentation_number""", (segment_id, ))
                 cyclo_result_rows = cursor.fetchall()
-                
                 if len(cyclo_result_rows) == len(segmentation_result_rows): 
                     print("EXIST - SKIP")
                     continue
@@ -297,10 +309,12 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, get_sideways_imgs):
                 elif multiple_areas[0] == True:
                     print("[!!!] multiple traffic areas - skip")
                     log(execution_file=execution_file, img_type="cyclo", logstart=log_start, logtime=datetime.now(), message= f"Multiple traffic areas for segment: {segment_id}")
-                    #TODO implement multiple traffic areas?
+                    #TODO implement multiple traffic areas => could work with the new way implemented getting cyclomedia IDs from WFS api
                     continue
 
                 elif multiple_areas[0] == False:
+
+                   
                     
                     shift_length = 3
                     # segment is not divided into smaller parts
@@ -308,11 +322,15 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, get_sideways_imgs):
                         segmentation_number = segmentation_result_rows[0][0]
                         start_lat, start_lon = segmentation_result_rows[0][1], segmentation_result_rows[0][2]
                         end_lat, end_lon = segmentation_result_rows[0][3], segmentation_result_rows[0][4]
-                        slope_origin = calculate_slope([(start_lat, start_lon), (end_lat, end_lon)])
+                        median_width = segmentation_result_rows[0][5]
+                        temp_coords = [(start_lat, start_lon), (end_lat, end_lon)]
+                        bbox = calculate_bounding_box(temp_coords, median_width)
+                        #slope_origin = calculate_slope([(start_lat, start_lon), (end_lat, end_lon)])
                         north_deviation = calculate_street_deviation_from_north((start_lat, start_lon), (end_lat, end_lon))
                         print("START & END COORDS: ", (start_lat, start_lon), (end_lat, end_lon))
        
                         rec_IDs = get_nearest_recordings_for_street_pts((start_lat, start_lon), (end_lat, end_lon), shift_length, slope_origin, [])
+                        # recordings = get_recordings_for_segment(bbox) #TODO implement!
                         rec_IDs = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = rec_IDs, north_deviation = north_deviation, max_distance = 9, folder_dir=PATHS.CYCLO_IMG_FOLDER_PATH)
                         load_into_db(rec_IDs=rec_IDs, segment_id = segment_id, segmentation_number=segmentation_number, connection=con)
 
@@ -349,4 +367,4 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, get_sideways_imgs):
 if __name__ == "__main__":
     config_path = f'{RES_FOLDER_PATH}/{DB_CONFIG_FILE_NAME}'
                                                     #suburb list = tuple (sstr, int)
-    get_cyclomedia_data(config_path, PATHS.DB_USER, suburb_list=[], get_sideways_imgs = False)
+    get_cyclomedia_data(config_path, PATHS.DB_USER, suburb_list=['Südvorstadt'], get_sideways_imgs = False)
