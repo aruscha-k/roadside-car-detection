@@ -75,6 +75,18 @@
         }
     },
     {
+        "name": "parking_annotated",
+        "columns": [
+            {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "segmentation_number", "type": "int"},
+            {"name": "parking_side", "type": "text"},
+            {"name": "value", "type": "text"}
+        ],
+        "constraints": {
+            "primaryKey": ["segment_id", "segmentation_number", "parking_side"]
+        }
+    },
+    {
         "name": "ortsteile",
         "columns": [
             {"name": "ot_nr", "type": "text", "primary key": true, "not null": true},
