@@ -1,6 +1,7 @@
 from DB_helpers import open_connection
 from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, DB_USER
 from collections import Counter
+import psycopg2
 
 import os
 
@@ -226,7 +227,12 @@ def run(db_config, db_user, suburb_list, img_type):
     with open_connection(db_config, db_user) as con:
         cursor = con.cursor()
 
-        for ot_name, ot_nr in suburb_list:
+        if suburb_list == []:
+             # get ortsteile and their number codes
+            cursor.execute("""SELECT ot_name FROM ortsteile""")
+            suburb_list = cursor.fetchall()
+
+        for ot_name in suburb_list:
 
             cursor.execute("""SELECT id FROM segments WHERE ot_name = %s""", (ot_name, ))
             segment_ids = [item[0] for item in cursor.fetchall()]
@@ -242,11 +248,16 @@ def run(db_config, db_user, suburb_list, img_type):
                     for segmentation_number in segment_parking_results.keys():
         
                         left_most_common_value, left_avg_percentage = compare_iteration_values(segment_parking_results[segmentation_number], 'left')
-                        cursor.execute("""INSERT INTO parking VALUES (%s, %s, %s, %s, %s)""", (segment_id, segmentation_number, "left", left_most_common_value, left_avg_percentage, ))
+                        try:
+                            cursor.execute("""INSERT INTO parking VALUES (%s, %s, %s, %s, %s)""", (segment_id, segmentation_number, "left", left_most_common_value, left_avg_percentage, ))
+                        except psycopg2.errors.UniqueViolation:
+                            con.rollback()
 
                         right_most_common_value, right_avg_percentage = compare_iteration_values(segment_parking_results[segmentation_number], 'right')
-                        cursor.execute("""INSERT INTO parking VALUES (%s, %s, %s, %s, %s)""", (segment_id, segmentation_number, "right", right_most_common_value, right_avg_percentage))
-            
+                        try:
+                            cursor.execute("""INSERT INTO parking VALUES (%s, %s, %s, %s, %s)""", (segment_id, segmentation_number, "right", right_most_common_value, right_avg_percentage))
+                        except psycopg2.errors.UniqueViolation:
+                            con.rollback()
                         con.commit()
 
                     print("RESULT--------->", {'segment_id': segment_id, 'left': left_most_common_value, 'right': right_most_common_value})
@@ -257,4 +268,4 @@ def run(db_config, db_user, suburb_list, img_type):
 
 if __name__ == "__main__":
     db_config = os.path.join(RES_FOLDER_PATH, DB_CONFIG_FILE_NAME)
-    run(db_config, DB_USER, [("Südvorstadt", 40)], img_type="")
+    run(db_config, DB_USER, ["Zentrum-West"], img_type="")

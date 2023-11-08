@@ -290,7 +290,7 @@ def run_detection(img_path_and_position_list, img_type, iter_information_dict):
                     predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = 'left', predicted_classes_for_side = [item[1] for item in im_left],  predictions = predictions[iteration_number])
                     predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = 'right', predicted_classes_for_side = [item[1] for item in im_right], predictions = predictions[iteration_number])
 
-                    visualize_and_save_prediction_img(os.path.join(CYCLO_IMG_FOLDER_PATH, img_file), instances, "cyclo", show_img = False, save_img = True, pred_img_file = DEMO_CYCLO_DETECTION_FOLDER_PATH + img_file) #for scads demo, save the image file with predictions
+                    visualize_and_save_prediction_img(os.path.join(CYCLO_IMG_FOLDER_PATH, img), instances, "cyclo", show_img = False, save_img = True, pred_img_file = DEMO_CYCLO_DETECTION_FOLDER_PATH + img_file) #for scads demo, save the image file with predictions
 
         if img_type == "air":
             px_bbox = transform_coordinates_to_pixel(iteration_poly, tiff_matrix)
