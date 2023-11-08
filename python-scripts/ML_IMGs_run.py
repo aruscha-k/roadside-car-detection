@@ -93,18 +93,28 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
                 else:
                     # iterate result rows segmentation rows
                     for idx, row in enumerate(segments_segmentation_rows):
-                        # check for existing in DB?: TODO
-                        # cursor.execute("""SELECT segment_id, segmentation_number, iteration_number, parking FROM {} WHERE segment_id = %s AND segmentation_number = %s AND iteration_number = %s""".format(result_table_name), (segment_id, segmentation_number, iteration_number,))
-                        # result = cursor.fetchone()
-                        # if len(result) == 2:
-                        #     print("EXISTS - skip")
-                        #     continue
-
-                        img_path_and_position_list = []
                         segmentation_number = segments_segmentation_rows[idx][0]
-                        
                         print("--segmentation number:", segmentation_number)
 
+                        # get iteration step information; left_coordinates/right_coordinates = 2 coordpairs each
+                        # if not iteration information was found, skip parking detection
+                        cursor.execute(""" SELECT iteration_number, left_coordinates, right_coordinates FROM segments_segmentation_iteration WHERE segment_id = %s AND segmentation_number = %s ORDER BY iteration_number ASC""", (segment_id, segmentation_number, ))
+                        iteration_result_rows = cursor.fetchall()
+                        if iteration_result_rows == []:
+                            print("no iteration information for segment: ", segment_id)
+                            log(execution_file = execution_file, img_type=img_type, logstart=log_start, logtime=datetime.now(), message=f"{segment_id}: No iteration information for segment")
+                            continue
+
+
+                        # check for existing in DB: if in the parking table (parking_res_count) there is the same number as iteration numbers * 2 (for left, right), there is already an entry so SKIP
+                        cursor.execute("""SELECT count(*) FROM {} WHERE segment_id = %s AND segmentation_number = %s""".format(result_table_name), (segment_id, segmentation_number,))
+                        parking_res_count = cursor.fetchone()[0]
+                        if parking_res_count == (len(iteration_result_rows)*2):
+                            print("EXISTS - skip")
+                            continue
+
+
+                        img_path_and_position_list = []
                         if img_type == "cyclo":
                             cursor.execute("""SELECT recording_id, recording_lat, recording_lon FROM segments_cyclomedia WHERE segment_id = %s AND segmentation_number = %s""", (segment_id, segmentation_number, ))
                             cyclo_rows = cursor.fetchall()
@@ -135,15 +145,6 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
                             print("No images for iteration")
                             log(execution_file = execution_file, img_type=img_type, logstart=log_start, logtime=datetime.now(), message=f"{segment_id}, {segmentation_number}: For segment_id and segmentation number there are no images to detect cars on.")
                             continue
-                        
-                        # get iteration step information; left_coordinates/right_coordinates = 2 coordpairs each
-                        # if not iteration information was found, skip parking detection
-                        cursor.execute(""" SELECT iteration_number, left_coordinates, right_coordinates FROM segments_segmentation_iteration WHERE segment_id = %s AND segmentation_number = %s ORDER BY iteration_number ASC""", (segment_id, segmentation_number, ))
-                        iteration_result_rows = cursor.fetchall()
-                        if iteration_result_rows == []:
-                            print("no iteration information for segment: ", segment_id)
-                            log(execution_file = execution_file, img_type=img_type, logstart=log_start, logtime=datetime.now(), message=f"{segment_id}: No iteration information for segment")
-                            continue
 
                         iter_information = {}
                         for iteration_row in iteration_result_rows:
@@ -155,25 +156,25 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
 
                         parking_dict = run_detection(img_path_and_position_list, img_type, iter_information)
 
-                        # # write to DB # parking_dict = {iteration_number: {'left': (parking, percentage), 'right': (parking, percentage)}}
-                        # for iteration_number, value in parking_dict.items():
-                        #     for side, (parking, percentage) in value.items():
-                        #         try:
-                        #             cursor.execute("""INSERT INTO {} VALUES (%s, %s, %s, %s, %s, %s)""".format(result_table_name), (segment_id, segmentation_number, iteration_number, side, parking, percentage,))
-                        #             con.commit()
+                        # write to DB # parking_dict = {iteration_number: {'left': (parking, percentage), 'right': (parking, percentage)}}
+                        for iteration_number, value in parking_dict.items():
+                            for side, (parking, percentage) in value.items():
+                                try:
+                                    cursor.execute("""INSERT INTO {} VALUES (%s, %s, %s, %s, %s, %s)""".format(result_table_name), (segment_id, segmentation_number, iteration_number, side, parking, percentage,))
+                                    con.commit()
                                    
-                        #         except psycopg2.errors.UniqueViolation as e:
-                        #             print(e) #TODO LOG?
-                        #             con.rollback()
-                        #             continue
+                                except psycopg2.errors.UniqueViolation as e:
+                                    print(e) #TODO LOG?
+                                    con.rollback()
+                                    continue
 
 
 
 if __name__ == "__main__":
 
     db_config_path = os.path.join(RES_FOLDER_PATH, DB_CONFIG_FILE_NAME)
-    #run(db_config_path, DB_USER, [("Südvorstadt", 40)], img_type="cyclo", result_table_name="parking_cyclomedia")
-    run(db_config_path, DB_USER, ["Volkmarsdorf"], img_type="air", result_table_name="parking_air")
+    run(db_config_path, DB_USER, [], img_type="cyclo", result_table_name="parking_cyclomedia")
+    #run(db_config_path, DB_USER, [], img_type="air", result_table_name="parking_air")
 
 
 #https://atlas.cyclomedia.com/PanoramaRendering/Render/WE4IK5SE/?apiKey=2_4lO_8ZuXEBuXY5m7oVWzE1KX41mvcd-PQZ2vElan85eLY9CPsdCLstCvYRWrQ5&srsName=epsg:55567837&direction=0&hfov=80
