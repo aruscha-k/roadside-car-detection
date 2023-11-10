@@ -198,6 +198,7 @@ def create_segmentation_and_iteration(db_config, db_user):
                 if len(sorted_coords) > 2:
                     segmentation_counter = 1
                     for i in range(0, len(sorted_coords)):
+                        # print("segmentation counter:", segmentation_counter)
                         try:
                             write_segmentation_values_to_DB(cursor, con, segment_id, segmentation_counter, width, sorted_coords[i][0], sorted_coords[i][1], sorted_coords[i+1][0], sorted_coords[i+1][1], quadrant)
                             iteration_segments_bboxes = create_iteration_boxes((sorted_coords[i][0], sorted_coords[i][1]), (sorted_coords[i+1][0], sorted_coords[i+1][1]), width, quadrant)
@@ -213,8 +214,7 @@ def create_segmentation_and_iteration(db_config, db_user):
                     write_segmentation_values_to_DB(cursor, con, segment_id, segmentation_counter, width, sorted_coords[0][0], sorted_coords[0][1], sorted_coords[1][0], sorted_coords[1][1], quadrant)
                     iteration_segments_bboxes = create_iteration_boxes(sorted_coords[0], sorted_coords[1], width, quadrant)
                     write_iteration_boxes_to_DB(cursor, con, iteration_segments_bboxes, segment_id, segmentation_counter)
-                    write_street_sides_to_DB(cursor, con, iteration_segments_bboxes, segment_id, segmentation_counter)
-                  
+                    write_street_sides_to_DB(cursor, con, iteration_segments_bboxes, segment_id, segmentation_counter) 
 
 # add the geometries as PostGIS geometries
 # in the loaded segments table intersect each segment with the ortsteile geometry and if there is an intersection, add the accoding ot_name to segments table

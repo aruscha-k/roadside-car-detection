@@ -107,19 +107,19 @@ def calculate_quadrant_from_center(str_pts):
         idx_of_pt = further_from_edges(str_pts, city_center_pt)
         quadrant = quadrants[idx_of_pt]
 
+    # print("Quadrant:", quadrant)
     return quadrant
 
 
-#return index of pts further away from the edges of the quadrants
 def further_from_edges(str_pts, quadrant_center):
-    """method to determine which of two points is further away from the quadrant center, with specifying a custom quadrant center
+    """method to determine which of two points lies deeper within its quadrant, with specifying a custom quadrant center
 
     Args:
         str_pts (list): of points
         quadrant_center (pt): coordinates
 
     Returns:
-        _type_: _description_
+        int: index of the point further away from the edges of the quadrants
     """
     x1, y1 = str_pts[0]
     x2, y2 = str_pts[1]
@@ -203,6 +203,7 @@ def calculate_start_end_pt(str_pts):
                 str_start = min(str_pts, key=lambda x: x[0])
                 str_end = max(str_pts, key=lambda x: x[0])
 
+    # print("startpt", str_start, "endpt", str_end)
     return str_start, str_end, quadrant
 
 
@@ -216,7 +217,7 @@ def calculate_start_end_pt(str_pts):
 # RETURNS:
 #   True/False (bool): for the while-loop in which the shifting happens
 def segment_iteration_condition(slope, x_angle, str_start, str_end, x_shifted, y_shifted, quadrant):
-    #print("iteration condition check", slope, x_angle, str_start, str_end, x_shifted, y_shifted)
+    # print("iteration condition check", slope, x_angle, str_start, str_end, x_shifted, y_shifted)
 
     # street parallel to y; endpoint is dependent on y-value
     if slope == None:
