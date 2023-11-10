@@ -105,7 +105,8 @@
             {"name": "start_lat", "type": "float8"},
             {"name": "start_lon", "type": "float8"},
             {"name": "end_lat", "type": "float8"},
-            {"name": "end_lon", "type": "float8"}
+            {"name": "end_lon", "type": "float8"},
+            {"name": "quadrant", "type": "int"}
         ],
         "constraints":{
             "primaryKey": ["segment_id", "segmentation_number"],
@@ -135,8 +136,8 @@
             {"name": "right_coordinates", "type": "jsonb"}
         ],
         "constraints":{
-            "primaryKey": ["segment_id", "segmentation_number"],
-            "not null": ["segment_id", "segmentation_number"]
+            "primaryKey": ["segment_id", "iteration_number"],
+            "not null": ["segment_id", "segmentation_number", "iteration_number"]
         }
     },
     {

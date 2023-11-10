@@ -2,7 +2,7 @@ import ERROR_CODES as ec
 from GLOBAL_VARS import ITERATION_LENGTH
 from DB_helpers import open_connection
 from helpers_geometry import calculate_start_end_pt, calculate_bounding_box, find_angle_to_x, calculate_slope, get_y_intercept, segment_iteration_condition
-from helpers_coordiantes import convert_coords, sort_coords, shift_pt_along_street
+from helpers_coordiantes import convert_coords, sort_coords, shift_pt_along_street, calulate_distance_of_two_coords
 from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, DB_USER
 from LOG import log
 
@@ -46,9 +46,9 @@ def create_segm_gid_relation(db_config, db_user):
                 cursor.execute("""UPDATE area_segment_relation 
                                 SET segment_id = %s, multiple_areas = TRUE
                                 WHERE segm_gid = %s""",(segment_id, segm_gid,))
-                
-            
-def create_iteration_boxes(str_start, str_end, width):
+
+
+def create_iteration_boxes(str_start, str_end, width, quadrant):
 
     iteration_segments = []
     x_angle = find_angle_to_x([str_start, str_end])
@@ -60,17 +60,19 @@ def create_iteration_boxes(str_start, str_end, width):
 
     #first shift
     x_start, y_start  = str_start[0], str_start[1]
-    x_shifted, y_shifted = shift_pt_along_street((x_start, y_start), x_angle, ITERATION_LENGTH, slope, b)
-
-    while segment_iteration_condition(slope, x_angle, str_start, str_end, x_shifted, y_shifted):
+    x_shifted, y_shifted = shift_pt_along_street((x_start, y_start), x_angle, ITERATION_LENGTH, slope, b, quadrant)
+    while segment_iteration_condition(slope, x_angle, str_start, str_end, x_shifted, y_shifted, quadrant):
         # bbox type = [start_left, end_left, end_right, start_right]
-        bbox = calculate_bounding_box([(x_start, y_start), (x_shifted, y_shifted)], width)
+        bbox = calculate_bounding_box([(x_start, y_start), (x_shifted, y_shifted)], width, quadrant)
         iteration_segments.append(bbox)
         x_start, y_start = x_shifted, y_shifted
-        x_shifted, y_shifted = shift_pt_along_street((x_start, y_start), x_angle, ITERATION_LENGTH, slope, b)
-    
+        dist = calulate_distance_of_two_coords([x_start, y_start], str_end)
+        if ITERATION_LENGTH <= dist <= (ITERATION_LENGTH*1.2): #to avoid very small iteration boxes, check if the last part is only slightly bigger than the iteration length
+            break
+        x_shifted, y_shifted = shift_pt_along_street((x_start, y_start), x_angle, ITERATION_LENGTH, slope, b, quadrant)
+   
     #last point when codition was false
-    bbox = calculate_bounding_box([(x_start, y_start), (str_end[0], str_end[1])], width)
+    bbox = calculate_bounding_box([(x_start, y_start), (str_end[0], str_end[1])], width, quadrant)
     iteration_segments.append(bbox)
 
     return iteration_segments
@@ -107,9 +109,9 @@ def get_traffic_area_width(segm_gid, cursor):
         return ec.MULTIPLE_TRAFFIC_AREAS
 
 
-def write_segmentation_values_to_DB(cursor, con, segment_id, segmentation_counter, width, start_lat, start_lon, end_lat, end_lon):
+def write_segmentation_values_to_DB(cursor, con, segment_id, segmentation_counter, width, start_lat, start_lon, end_lat, end_lon, quadrant):
     cursor.execute("""INSERT INTO segments_segmentation 
-                   VALUES (%s, %s, %s, %s, %s, %s, %s) """, (segment_id, segmentation_counter, width, start_lat, start_lon, end_lat, end_lon, ))
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """, (segment_id, segmentation_counter, width, start_lat, start_lon, end_lat, end_lon, quadrant,))
     con.commit()
                    
 
@@ -171,23 +173,24 @@ def create_segmentation_and_iteration(db_config, db_user):
             if geom_type == "LineString":
         
                 #TODO: check if segment exists already?
-                converted_coords = [convert_coords("EPSG:25833", "EPSG:4326", pt[0], pt[1]) for pt in geom_coords]
-                str_start, str_end = calculate_start_end_pt(converted_coords)
-                sorted_coords = sort_coords(converted_coords, str_start)
+                #converted_coords = [convert_coords("EPSG:25833", "EPSG:4326", pt[0], pt[1]) for pt in geom_coords]
+                str_start, str_end, quadrant = calculate_start_end_pt(geom_coords)
+                sorted_coords = sort_coords(geom_coords, str_start)
+                
                 
                 # if sorting method didnt work TODO: find way to sort coords
-                if sorted_coords != []:
-                    sorted_coords = [convert_coords("EPSG:4326", "EPSG:25833", pt[0], pt[1]) for pt in sorted_coords]
-                else:
+                if sorted_coords == []:
+                    # sorted_coords = [convert_coords("EPSG:4326", "EPSG:25833", pt[0], pt[1]) for pt in sorted_coords]
+                # else:
                     log(execution_file=execution_file, img_type="", logstart=log_start, logtime=datetime.now(), message= f"Wrong coord sorting for segment: {segment_id}")
-                    write_segmentation_values_to_DB(cursor, con, segment_id, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING)
+                    write_segmentation_values_to_DB(cursor, con, segment_id, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING, ec.WRONG_COORD_SORTING)
                     continue
 
                 width = get_traffic_area_width(segm_gid, cursor)
                 if width == ec.NO_WIDTH or width == ec.MULTIPLE_TRAFFIC_AREAS or width == ec.NO_TRAFFIC_AREA_INFO:
                         log(execution_file=execution_file, img_type="", logstart=log_start, logtime=datetime.now(), message= f"No width for segment: {segment_id}, error code: {width}")
                         print("[!!] ERROR CODE: No width for segment or multiple traffic areas: ", segment_id, "error code: ", width)
-                        write_segmentation_values_to_DB(cursor, con, segment_id, width, width, width, width, width, width)
+                        write_segmentation_values_to_DB(cursor, con, segment_id, width, width, width, width, width, width, width)
                         continue
 
                 # if more than two coordinates, street has a bend => 
@@ -196,8 +199,8 @@ def create_segmentation_and_iteration(db_config, db_user):
                     segmentation_counter = 1
                     for i in range(0, len(sorted_coords)):
                         try:
-                            write_segmentation_values_to_DB(cursor, con, segment_id, segmentation_counter, width, sorted_coords[i][0], sorted_coords[i][1], sorted_coords[i+1][0], sorted_coords[i+1][1])
-                            iteration_segments_bboxes = create_iteration_boxes((sorted_coords[i][0], sorted_coords[i][1]), (sorted_coords[i+1][0], sorted_coords[i+1][1]), width)
+                            write_segmentation_values_to_DB(cursor, con, segment_id, segmentation_counter, width, sorted_coords[i][0], sorted_coords[i][1], sorted_coords[i+1][0], sorted_coords[i+1][1], quadrant)
+                            iteration_segments_bboxes = create_iteration_boxes((sorted_coords[i][0], sorted_coords[i][1]), (sorted_coords[i+1][0], sorted_coords[i+1][1]), width, quadrant)
                             write_iteration_boxes_to_DB(cursor, con, iteration_segments_bboxes, segment_id, segmentation_counter)
                             write_street_sides_to_DB(cursor, con, iteration_segments_bboxes, segment_id, segmentation_counter)
                             segmentation_counter += 1
@@ -207,8 +210,8 @@ def create_segmentation_and_iteration(db_config, db_user):
                 # segment does not have bend
                 else:
                     segmentation_counter = 0 
-                    write_segmentation_values_to_DB(cursor, con, segment_id, segmentation_counter, width, sorted_coords[0][0], sorted_coords[0][1], sorted_coords[1][0], sorted_coords[1][1])
-                    iteration_segments_bboxes = create_iteration_boxes(sorted_coords[0], sorted_coords[1], width)
+                    write_segmentation_values_to_DB(cursor, con, segment_id, segmentation_counter, width, sorted_coords[0][0], sorted_coords[0][1], sorted_coords[1][0], sorted_coords[1][1], quadrant)
+                    iteration_segments_bboxes = create_iteration_boxes(sorted_coords[0], sorted_coords[1], width, quadrant)
                     write_iteration_boxes_to_DB(cursor, con, iteration_segments_bboxes, segment_id, segmentation_counter)
                     write_street_sides_to_DB(cursor, con, iteration_segments_bboxes, segment_id, segmentation_counter)
                   
