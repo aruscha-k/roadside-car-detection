@@ -2,7 +2,7 @@ import math
 import numpy as np
 
 
-from GLOBAL_VARS import CITY_CENTERPT_LEIPZIG
+from GLOBAL_VARS import CITY_CENTERPT_LEIPZIG_25833, CITY_CENTERPT_LEIPZIG_4326
 
 
 #TODO delete? new method from miriam!
@@ -67,37 +67,81 @@ def calculate_street_deviation_from_north(start_pt, end_pt):
 
 def calculate_quadrant_from_center(str_pts):
     """ given a specific point for a cities center, calculate in which quadrant a street lies, when point of origin is city center
+        check which EPSG input coordinates are in and use correct center pt respectively
+        if points dont lie within same quadrant, calculate points that lies deeper within the quadrant
 
     Args:
-        str_pts (list): 2 points of the beginning (index = 0) and end (index=1) of street
+        str_pts (list): can be 2 points of the beginning (index = 0) and end (index=1) of street or just one point in a list!!! check that str_pts are in same format as city center point !!!
 
     Returns:
         int: quadrant between 1-4 according to the naming of quadrants anti-clockwise
     """
+    # print("calculate quadrant for pts: ", str_pts)
     x = str_pts[0][0]
-    y = str_pts[0][1]
-    origin_x = CITY_CENTERPT_LEIPZIG[0]
-    origin_y = CITY_CENTERPT_LEIPZIG[1]
 
-    if x > origin_x and y > origin_y:
-        quadrant = 1
-    elif x < origin_x and y > origin_y:
-        quadrant = 2
-    elif x < origin_x and y < origin_y:
-        quadrant = 3
-    elif x > origin_x and y < origin_y:
-        quadrant = 4
+    if x > 55:
+        city_center_pt = CITY_CENTERPT_LEIPZIG_25833
     else:
-        print("[!!] Quadrant = Origin")
+        city_center_pt = CITY_CENTERPT_LEIPZIG_4326
+    origin_x = city_center_pt[0]
+    origin_y = city_center_pt[1]
+
+    quadrants = dict()
+    for idx, pt in enumerate(str_pts):
+        if pt[0] > origin_x and pt[1] > origin_y:
+            quadrants[idx] = 1
+        elif pt[0] < origin_x and pt[1] > origin_y:
+            quadrants[idx] = 2
+        elif pt[0] < origin_x and pt[1] < origin_y:
+            quadrants[idx] = 3
+        elif pt[0] > origin_x and pt[1] < origin_y:
+            quadrants[idx] = 4
+        else:
+            print("[!!] Quadrant = Origin")
+
+    # check if both points are in same quadrant
+    if len(set(quadrants.values())) == 1:
+        quadrant = quadrants[0]
+    else:
+        print("[!] not same quadrant")
+        idx_of_pt = further_from_edges(str_pts, city_center_pt)
+        quadrant = quadrants[idx_of_pt]
 
     return quadrant
+
+
+#return index of pts further away from the edges of the quadrants
+def further_from_edges(str_pts, quadrant_center):
+    """method to determine which of two points is further away from the quadrant center, with specifying a custom quadrant center
+
+    Args:
+        str_pts (list): of points
+        quadrant_center (pt): coordinates
+
+    Returns:
+        _type_: _description_
+    """
+    x1, y1 = str_pts[0]
+    x2, y2 = str_pts[1]
+    center_x, center_y = quadrant_center
+
+    distance1 = abs(x1 - center_x) + abs(y1 - center_y)
+    distance2 = abs(x2 - center_x) + abs(y2 - center_y)
+
+    # if point 1 is closer to edge, most points lie in quadrant of point 2, therefore return index of pt2 => 1
+    if distance1 < distance2:
+        return 1
+    elif distance2 < distance1: # if point 2 is closer to edge, most points lie in quadrant of point 1, therefore return index of pt1 => 0
+        return 0
+    else:
+        print("Both points are equidistant from the edges.") # TODO log?
 
 
 def calculate_start_end_pt(str_pts):
     """method to determine the start and endpoint of a line according to this projects definition (s.WIKI) according to slope and quadrant the street lies in, starting point is the one closest to city center
 
     Args:
-        str_pts (list): street points
+        str_pts (list): street points !! in coordinate format EPSG:4326 !!
 
     Returns:
         str_start (float, float): start point
@@ -110,7 +154,7 @@ def calculate_start_end_pt(str_pts):
 
     # if street parallel to y
     if slope == None:
-        if str_pts[-1][1] > CITY_CENTERPT_LEIPZIG[1]:
+        if str_pts[-1][1] > CITY_CENTERPT_LEIPZIG_4326[1]:
             str_start = min(str_pts, key=lambda x: x[1])
             str_end = max(str_pts, key=lambda x: x[1])
         else:
@@ -119,7 +163,7 @@ def calculate_start_end_pt(str_pts):
 
     # if street parallel to x
     elif slope == 0:
-        if str_pts[-1][0] > CITY_CENTERPT_LEIPZIG[0]:
+        if str_pts[-1][0] > CITY_CENTERPT_LEIPZIG_4326[0]:
             str_start = min(str_pts, key=lambda x: x[0])
             str_end = max(str_pts, key=lambda x: x[0])
         else:
@@ -159,7 +203,7 @@ def calculate_start_end_pt(str_pts):
                 str_start = min(str_pts, key=lambda x: x[0])
                 str_end = max(str_pts, key=lambda x: x[0])
 
-    return str_start, str_end
+    return str_start, str_end, quadrant
 
 
 # method to use, when getting images from cyclomedia: for this a segment has to be iterated by x meters along the street
@@ -171,11 +215,12 @@ def calculate_start_end_pt(str_pts):
 #   x_shifted, y_shifted: the current shift point as (lon, lat)
 # RETURNS:
 #   True/False (bool): for the while-loop in which the shifting happens
-def segment_iteration_condition(slope, x_angle, str_start, str_end, x_shifted, y_shifted):
-    quadrant = calculate_quadrant_from_center([str_start, str_end])
+def segment_iteration_condition(slope, x_angle, str_start, str_end, x_shifted, y_shifted, quadrant):
+    #print("iteration condition check", slope, x_angle, str_start, str_end, x_shifted, y_shifted)
+
     # street parallel to y; endpoint is dependent on y-value
     if slope == None:
-        if y_shifted > CITY_CENTERPT_LEIPZIG[1]:
+        if y_shifted > CITY_CENTERPT_LEIPZIG_25833[1]:
             while y_shifted < str_end[1]:
                 return True
             else:
@@ -188,7 +233,7 @@ def segment_iteration_condition(slope, x_angle, str_start, str_end, x_shifted, y
 
     # if street parallel to x; endpoint is dependent on x-value
     elif slope == 0:
-        if x_shifted > CITY_CENTERPT_LEIPZIG[0]:
+        if x_shifted > CITY_CENTERPT_LEIPZIG_25833[0]:
             while x_shifted < str_end[0]:
                 return True
             else:
@@ -333,7 +378,7 @@ def calc_interception_of_two_lines(m1, b1, m2, b2):
     return (x,y)
 
 
-def calculate_bounding_box(str_pts, width):
+def calculate_bounding_box(str_pts, width, quadrant):
     """ given two points and the wanted width calculate two parallel lines and perpendiculars so get a bounding box for a street segment function cant be joined with calculate_start_end segments, because it is used on iteration of segmentated semgents => more detailed
 
     Args:
@@ -343,12 +388,11 @@ def calculate_bounding_box(str_pts, width):
     Returns:
         list: bbox with points in order [start_left, end_left, end_right, start_right]
     """
-   
     # slope of original line
     slope_origin = calculate_slope(str_pts)
     #if street parallel to y-axis
     if slope_origin == None:
-        if str_pts[0][1] > CITY_CENTERPT_LEIPZIG[1]:
+        if str_pts[0][1] > CITY_CENTERPT_LEIPZIG_25833[1]:
             start_left = (str_pts[0][0] - (width/2), str_pts[0][1])
             end_left = (str_pts[1][0] - (width/2), str_pts[1][1])
             end_right = (str_pts[1][0] + (width/2), str_pts[1][1])
@@ -365,7 +409,7 @@ def calculate_bounding_box(str_pts, width):
     # if street parallel to x
     elif slope_origin == 0:
         b_origin = get_y_intercept(str_pts[0], slope_origin) 
-        if str_pts[0][0] > CITY_CENTERPT_LEIPZIG[0]:
+        if str_pts[0][0] > CITY_CENTERPT_LEIPZIG_25833[0]:
             start_left = (str_pts[0][0], b_origin + (width/2))
             end_left = (str_pts[1][0], b_origin + (width/2))
             end_right = (str_pts[1][0], b_origin - (width/2))
@@ -392,8 +436,6 @@ def calculate_bounding_box(str_pts, width):
 
     # calc perpendiculars for start point and endpoints
     m_perpendicular, b_perpend_start, b_perpend_end = calc_perpendicular(str_pts)
-    # calculate quadrant line lies in from street start and street end
-    quadrant = calculate_quadrant_from_center([str_pts[0], str_pts[1]])
     
     if slope_origin > 0:
         if abs(math.degrees(x_angle)) <= 45:

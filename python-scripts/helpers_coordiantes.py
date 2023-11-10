@@ -2,7 +2,6 @@ from pyproj import Transformer
 from geopy import distance
 import math
 from shapely.geometry import Point, Polygon
-from helpers_geometry import calculate_quadrant_from_center
 
 
 def convert_coords(from_epsg, to_epsg, lat, lon):
@@ -62,7 +61,7 @@ def calulate_distance_of_two_coords(coord1, coord2):
     return dist
 
 
-def shift_pt_along_street(origin_pt, x_angle, shift_length, slope, y_intercept):
+def shift_pt_along_street(origin_pt, x_angle, shift_length, slope, y_intercept, quadrant):
     """ Method to shift a point along a line of a street with a specified shift length, calculates new (x,y) value using line equation
         is used to get all cyclomedia recording points within a street segment
         different cases a differentiated between regarding the alignment and position of the street segment in the coordinates system
@@ -77,7 +76,6 @@ def shift_pt_along_street(origin_pt, x_angle, shift_length, slope, y_intercept):
     Returns:
         tuple: the shifted point
     """
-    quadrant = calculate_quadrant_from_center([origin_pt])
     if slope == None: #parallel to y
         shifted_x = origin_pt[0]
         if quadrant in [1, 2]:
