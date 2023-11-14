@@ -158,7 +158,21 @@ def calculate_average_percentage(result_list, parking_value):
     return round(avg_percentage, 1)
 
 
-def compare_iteration_values(segmentation_result_dict, parking_side):
+def write_parking_result_to_DB(con, segment_id, segmentation_number, iteration_number, parking_side, parking_value, parking_percentage):
+    cursor = con.cursor()
+    #write segmentation to DB, because no iteration number was specified
+    try:
+        if iteration_number == "":
+            cursor.execute("""INSERT INTO parking_segment VALUES (%s, %s, %s, %s, %s)""", (segment_id, segmentation_number, parking_side, parking_value, parking_percentage, ))
+        else: #write iteration number to DB
+            cursor.execute("""INSERT INTO parking_iteration VALUES (%s, %s, %s, %s, %s, %s)""", (segment_id, segmentation_number, iteration_number, parking_side, parking_value, parking_percentage, ))
+        
+    except psycopg2.errors.UniqueViolation:
+        con.rollback()
+    con.commit()
+
+
+def compare_iteration_values(db_con, segment_id, segmentation_number, segmentation_result_dict, parking_side):
     """ compare all iterations parking values for one parking side for both image types
         iterate iterations and compare parking side for both image types, save results to a temp list 
         use temp list to find the most common value which will be the result for the whole segment
@@ -173,14 +187,16 @@ def compare_iteration_values(segmentation_result_dict, parking_side):
     """
     iteration_comparison_results = []
 
-    # compare per iteration the "two images"
+    # compare per iteration the "two images" and write to DB
     for iteration_number, values in segmentation_result_dict.items():
         # print("in", parking_side, values[parking_side])
         parking_value, parking_percentage = compare_iteration_result_per_image_type(values[parking_side])
+        write_parking_result_to_DB(db_con, segment_id, segmentation_number, iteration_number, parking_side, parking_value, parking_percentage)
         iteration_comparison_results.append((parking_value, parking_percentage))
     # print("results of comparison:", iteration_comparison_results)
 
-    # merge all iteration results to one big result for the whole segmen
+
+    # merge all iteration results to one big result for the whole segment and write to DB
     counter = Counter([item[0] for item in iteration_comparison_results])
     most_common_parking_value, most_common_count = counter.most_common(1)[0]# show the most common item (1) (=tuple) and choose it ([0])
     next_most_common_count = counter.most_common(2)[1][1] if len(counter) > 1 else 0
@@ -197,24 +213,26 @@ def compare_iteration_values(segmentation_result_dict, parking_side):
         next_most_common_avg = calculate_average_percentage(iteration_comparison_results, next_most_common_parking_value)
 
         if most_common_avg > next_most_common_avg:
-            return most_common_parking_value, most_common_avg
+            write_parking_result_to_DB(db_con, segment_id, segmentation_number, iteration_number="", parking_side=parking_side, parking_value=most_common_parking_value, parking_percentage=most_common_avg)
+            
         elif next_most_common_avg > most_common_avg:
-            return next_most_common_parking_value, next_most_common_avg
+            write_parking_result_to_DB(db_con, segment_id, segmentation_number, iteration_number="", parking_side=parking_side, parking_value=next_most_common_parking_value, parking_percentage=next_most_common_avg)
         
         # if they have same avg percentage value, check if one of them is kein auto and if yes return the other
         elif most_common_avg == next_most_common_avg:
             if most_common_parking_value == "kein Auto":
-                return next_most_common_parking_value, next_most_common_avg
+                write_parking_result_to_DB(db_con, segment_id, segmentation_number, iteration_number="", parking_side=parking_side, parking_value=next_most_common_parking_value, parking_percentage=next_most_common_avg)
+
             elif next_most_common_parking_value == "kein Auto":
-                return most_common_parking_value, most_common_avg
+                write_parking_result_to_DB(db_con, segment_id, segmentation_number, iteration_number="", parking_side=parking_side, parking_value=most_common_parking_value, parking_percentage=most_common_avg)
             else:
                 #TODO if both have same avg percentage and none of them is "kein auto" which to chose?!
-                return most_common_parking_value, most_common_avg
+                write_parking_result_to_DB(db_con, segment_id, segmentation_number, iteration_number="", parking_side=parking_side, parking_value=most_common_parking_value, parking_percentage=most_common_avg)
 
 
 
 def run(db_config, db_user, suburb_list, img_type):
-    """ Method to merge parking results fro cyclomedia and air images for a specific suburb (list):
+    """ Method to merge parking results from cyclomedia and air images for a specific suburb (list):
         iterate all suburbs -> get all segment ids per suburb -> 
 
     Args:
@@ -246,21 +264,8 @@ def run(db_config, db_user, suburb_list, img_type):
 
                     # compare parking results per segmentation_number (of segment) first left side, then right
                     for segmentation_number in segment_parking_results.keys():
-        
-                        left_most_common_value, left_avg_percentage = compare_iteration_values(segment_parking_results[segmentation_number], 'left')
-                        try:
-                            cursor.execute("""INSERT INTO parking VALUES (%s, %s, %s, %s, %s)""", (segment_id, segmentation_number, "left", left_most_common_value, left_avg_percentage, ))
-                        except psycopg2.errors.UniqueViolation:
-                            con.rollback()
-
-                        right_most_common_value, right_avg_percentage = compare_iteration_values(segment_parking_results[segmentation_number], 'right')
-                        try:
-                            cursor.execute("""INSERT INTO parking VALUES (%s, %s, %s, %s, %s)""", (segment_id, segmentation_number, "right", right_most_common_value, right_avg_percentage))
-                        except psycopg2.errors.UniqueViolation:
-                            con.rollback()
-                        con.commit()
-
-                    print("RESULT--------->", {'segment_id': segment_id, 'left': left_most_common_value, 'right': right_most_common_value})
+                        compare_iteration_values(con, segment_id, segmentation_number, segment_parking_results[segmentation_number], 'left')
+                        compare_iteration_values(con, segment_id, segmentation_number, segment_parking_results[segmentation_number], 'right')
                 else:
                     print("[!] RESULT---------> no result, empty fetch")
 
@@ -268,4 +273,4 @@ def run(db_config, db_user, suburb_list, img_type):
 
 if __name__ == "__main__":
     db_config = os.path.join(RES_FOLDER_PATH, DB_CONFIG_FILE_NAME)
-    run(db_config, DB_USER, ["Zentrum-West"], img_type="")
+    run(db_config, DB_USER, ["Südvorstadt"], img_type="")
