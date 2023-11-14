@@ -62,7 +62,7 @@
         }
     },
     {
-        "name": "parking",
+        "name": "parking_segment",
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
             {"name": "segmentation_number", "type": "int"},
@@ -75,7 +75,21 @@
         }
     },
     {
-        "name": "parking_annotated",
+        "name": "parking_iteration",
+        "columns": [
+            {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "segmentation_number", "type": "int"},
+            {"name": "iteration_number", "type": "int"},
+            {"name": "parking_side", "type": "text"},
+            {"name": "value", "type": "text"},
+            {"name": "percentage", "type": "float8"}
+        ],
+        "constraints": {
+            "primaryKey": ["segment_id", "segmentation_number", "iteration_number", "parking_side"]
+        }
+    },
+    {
+        "name": "parking_segment_annotated",
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
             {"name": "segmentation_number", "type": "int"},
@@ -84,6 +98,19 @@
         ],
         "constraints": {
             "primaryKey": ["segment_id", "segmentation_number", "parking_side"]
+        }
+    },
+    {
+        "name": "parking_iteration_annotated",
+        "columns": [
+            {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "segmentation_number", "type": "int"},
+            {"name": "iteration_number", "type": "int"},
+            {"name": "parking_side", "type": "text"},
+            {"name": "value", "type": "text"}
+        ],
+        "constraints": {
+            "primaryKey": ["segment_id", "segmentation_number", "iteration_number", "parking_side"]
         }
     },
     {
