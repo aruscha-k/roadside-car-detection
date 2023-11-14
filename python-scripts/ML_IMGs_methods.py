@@ -7,8 +7,9 @@ from collections import Counter
 from detectron2 import model_zoo
 from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
+from detectron2.utils.visualizer import Visualizer
 
-from PATH_CONFIGS import RES_FOLDER_PATH, CYCLO_DETECTION_MODEL, AIR_DETECTION_MODEL, CYCLO_IMG_FOLDER_PATH, AIR_CROPPED_ROTATED_FOLDER_PATH, AIR_TEMP_CROPPED_FOLDER_PATH, DEMO_AIR_DETECTION_FOLDER_PATH, DEMO_CYCLO_DETECTION_FOLDER_PATH
+from PATH_CONFIGS import RES_FOLDER_PATH, CYCLO_DETECTION_MODEL, AIR_DETECTION_MODEL, CYCLO_IMG_FOLDER_PATH, AIR_CROPPED_ROTATED_FOLDER_PATH, AIR_CROPPED_ITERATION_FOLDER_PATH, DEMO_AIR_DETECTION_FOLDER_PATH, DEMO_CYCLO_DETECTION_FOLDER_PATH
 from helpers_coordiantes import is_point_within_polygon
 from AIR_IMGs_process import transform_geotif_to_north, transform_coordinates_to_pixel, transform_points, is_car_within_polygon
 
@@ -112,7 +113,7 @@ def transform_air_img(img_file_name, img_bbox, out_file_type):
         out_file (string): filepath of output file
     """
     
-    in_tif = AIR_TEMP_CROPPED_FOLDER_PATH + img_file_name + ".tif"
+    in_tif = AIR_CROPPED_ITERATION_FOLDER_PATH + img_file_name + ".tif"
     if not os.path.exists(in_tif):
         print("[!] ERROR when tranforming air img: path not found for in_tif")
         # TODO LOG
@@ -265,7 +266,7 @@ def run_detection(img_path_and_position_list, img_type, iter_information_dict):
         bboxes = instances.pred_boxes.tensor.cpu().numpy()
         classes = instances.pred_classes.cpu().numpy()
 
-        visualize_and_save_prediction_img(out_img_path, instances, "air", show_img = False, save_img = True, pred_img_file = DEMO_AIR_DETECTION_FOLDER_PATH + img_file_name + ".jpg") #for scads demo, save the image file with predictions
+        visualize_and_save_prediction_img(out_img_path, instances, "air", show_img = False, save_img = True, pred_img_filepath = DEMO_AIR_DETECTION_FOLDER_PATH + img_file_name + ".jpg") #for scads demo, save the image file with predictions
         
     # go through each iteration
     for iteration_number, iteration_poly in iter_information_dict.items():
@@ -290,28 +291,28 @@ def run_detection(img_path_and_position_list, img_type, iter_information_dict):
                     predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = 'left', predicted_classes_for_side = [item[1] for item in im_left],  predictions = predictions[iteration_number])
                     predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = 'right', predicted_classes_for_side = [item[1] for item in im_right], predictions = predictions[iteration_number])
 
-                    visualize_and_save_prediction_img(os.path.join(CYCLO_IMG_FOLDER_PATH, img), instances, "cyclo", show_img = False, save_img = True, pred_img_file = DEMO_CYCLO_DETECTION_FOLDER_PATH + img_file) #for scads demo, save the image file with predictions
+                    visualize_and_save_prediction_img(os.path.join(CYCLO_IMG_FOLDER_PATH, img_file), instances, "cyclo", show_img = False, save_img = True, pred_img_filepath = DEMO_CYCLO_DETECTION_FOLDER_PATH + img_file) #for scads demo, save the image file with predictions
 
         if img_type == "air":
-            px_bbox = transform_coordinates_to_pixel(iteration_poly, tiff_matrix)
-            transformed_poly_points = transform_points(px_bbox, transform_matrix).astype(np.int32)
-            transformed_poly_points = list(transformed_poly_points.reshape(4,2))
+            # px_bbox = transform_coordinates_to_pixel(iteration_poly, tiff_matrix)
+            # transformed_poly_points = transform_points(px_bbox, transform_matrix).astype(np.int32)
+            # transformed_poly_points = list(transformed_poly_points.reshape(4,2))
 
             # assign all of the detected car boxes to a side
             all_left, all_right = assign_left_right(cropped_rotated_img, bboxes, classes)
       
             #check which of the boxes lie within centerpoints lie within the current iteration window
-            right = [(box, pred_class) for box, pred_class in all_right if is_car_within_polygon(box, transformed_poly_points)]
-            left = [(box, pred_class) for box, pred_class in all_left if is_car_within_polygon(box, transformed_poly_points)]
+            # right = [(box, pred_class) for box, pred_class in all_right if is_car_within_polygon(box, transformed_poly_points)]
+            # left = [(box, pred_class) for box, pred_class in all_left if is_car_within_polygon(box, transformed_poly_points)]
 
             #draw_assigned_classes_in_air_imgs(left, right, transformed_poly_points, out_img_path)
 
-            predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = "left", predicted_classes_for_side = [item[1] for item in left], predictions = predictions[iteration_number])
-            predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = "right", predicted_classes_for_side = [item[1] for item in right], predictions = predictions[iteration_number])
+            predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = "left", predicted_classes_for_side = [item[1] for item in all_left], predictions = predictions[iteration_number])
+            predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = "right", predicted_classes_for_side = [item[1] for item in all_right], predictions = predictions[iteration_number])
                              
     # for all predictions, calculate the parking
     parking_dict =  calculate_parking(predictions, img_type)
-    #print(parking_dict)
+    print(parking_dict)
 
     return parking_dict
 
@@ -344,27 +345,25 @@ def assign_predictions_to_side_and_iteration(side, predicted_classes_for_side, p
 
 # -------- for debug and demo ----------------
 # visualize prediction for 1 image
-def visualize_and_save_prediction_img(filename, instances, img_type, show_img, save_img, pred_img_file):
-    from detectron2.utils.visualizer import Visualizer
-
-    if img_type == "air":
-        predictor = load_air_predictor()
-        metadata = {"thing_classes": ['parallel', 'diagonal/senkrecht']}
-    elif img_type == "cyclo":
-        predictor = load_cyclo_predictor()
-        metadata = {"thing_classes": ['parallel', 'diagonal/senkrecht']}
+def visualize_and_save_prediction_img(filename, instances, img_type, show_img, save_img, pred_img_filepath):
     
     im = cv2.imread(filename)
-    #outputs = predictor(im)
-    #instances = outputs["instances"].to("cpu")
+
+    if img_type == "air":
+        metadata = {"thing_classes": ['p', 'd/s']}
+       
+    elif img_type == "cyclo":
+        metadata = {"thing_classes": ['parallel', 'diagonal/senkrecht']}
+        im = add_no_detection_area_for_cyclo(im)
+
     
-    v = Visualizer(im[:, :, ::-1], metadata=metadata, scale=0.5)
+    v = Visualizer(im[:, :, ::-1], metadata=metadata, scale=1)
     out = v.draw_instance_predictions(instances)
     if show_img:
         cv2.imshow('Prediction', out.get_image()[:, :, ::-1])
         cv2.waitKey(0)
     if save_img:
-        cv2.imwrite(pred_img_file, out.get_image()[:, :, ::-1])
+        cv2.imwrite(pred_img_filepath, out.get_image()[:, :, ::-1])
 
 
 
