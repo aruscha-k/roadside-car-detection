@@ -245,31 +245,9 @@ def run_detection(img_path_and_position_list, img_type, iter_information_dict):
         print("[!] invalid img type - cannot load predictor")
 
     predictions = dict()
-
-    if img_type == "air":
-        img_file_name = img_path_and_position_list[0][0]
-        img_file_name = img_file_name[:-4]
-        bbox = img_path_and_position_list[0][1]
-
-        transform_matrix, tiff_matrix, out_img_path = transform_air_img(img_file_name, bbox, out_file_type=".tif")
-
-        cropped_rotated_img = cv2.imread(out_img_path)
-        if cropped_rotated_img is None:
-            print("[!] ERROR: CV2 could not open img file - RETURN empty dict")
-            #TODO LOG
-            return {}
-        outputs = predictor(cropped_rotated_img)
-        instances = outputs["instances"].to("cpu")
-        if len(instances) > 2:
-            instances = remove_unparked_cars_for_air(instances)
-
-        bboxes = instances.pred_boxes.tensor.cpu().numpy()
-        classes = instances.pred_classes.cpu().numpy()
-
-        visualize_and_save_prediction_img(out_img_path, instances, "air", show_img = False, save_img = True, pred_img_filepath = DEMO_AIR_DETECTION_FOLDER_PATH + img_file_name + ".jpg") #for scads demo, save the image file with predictions
         
     # go through each iteration
-    for iteration_number, iteration_poly in iter_information_dict.items():
+    for idx, (iteration_number, iteration_poly) in enumerate(iter_information_dict.items()):
         #print("iter number and poly", iteration_number, iteration_poly)
         predictions[iteration_number] = {}
         
@@ -294,6 +272,27 @@ def run_detection(img_path_and_position_list, img_type, iter_information_dict):
                     visualize_and_save_prediction_img(os.path.join(CYCLO_IMG_FOLDER_PATH, img_file), instances, "cyclo", show_img = False, save_img = True, pred_img_filepath = DEMO_CYCLO_DETECTION_FOLDER_PATH + img_file) #for scads demo, save the image file with predictions
 
         if img_type == "air":
+            img_file_name = img_path_and_position_list[idx][0]
+            img_file_name = img_file_name[:-4]
+            bbox = img_path_and_position_list[idx][1]
+            
+            transform_matrix, tiff_matrix, out_img_path = transform_air_img(img_file_name, bbox, out_file_type=".tif")
+            cropped_rotated_img = cv2.imread(out_img_path)
+            if cropped_rotated_img is None:
+                print("[!] ERROR: CV2 could not open img file - RETURN empty dict")
+                #TODO LOG
+                return {}
+            outputs = predictor(cropped_rotated_img)
+            instances = outputs["instances"].to("cpu")
+            if len(instances) > 2:
+                instances = remove_unparked_cars_for_air(instances)
+
+            bboxes = instances.pred_boxes.tensor.cpu().numpy()
+            classes = instances.pred_classes.cpu().numpy()
+
+            visualize_and_save_prediction_img(out_img_path, instances, "air", show_img = False, save_img = True, pred_img_filepath = DEMO_AIR_DETECTION_FOLDER_PATH + img_file_name + ".jpg") #for scads demo, save the image file with predictions
+
+            # if img_type == "air":
             # px_bbox = transform_coordinates_to_pixel(iteration_poly, tiff_matrix)
             # transformed_poly_points = transform_points(px_bbox, transform_matrix).astype(np.int32)
             # transformed_poly_points = list(transformed_poly_points.reshape(4,2))
@@ -312,7 +311,6 @@ def run_detection(img_path_and_position_list, img_type, iter_information_dict):
                              
     # for all predictions, calculate the parking
     parking_dict =  calculate_parking(predictions, img_type)
-    print(parking_dict)
 
     return parking_dict
 
