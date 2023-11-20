@@ -48,6 +48,49 @@ def create_segm_gid_relation(db_config, db_user):
                                 WHERE segm_gid = %s""",(segment_id, segm_gid,))
 
 
+# def shorten_street_segments(sorted_coords, quadrant):
+#     if len(sorted_coords) == 2:
+#         str_start, str_end = sorted_coords[0], sorted_coords[-1]
+#         x_angle = find_angle_to_x([str_start, str_end])
+#         slope = calculate_slope([str_start, str_end])
+#         if slope == None:
+#             b = 0
+#         else:
+#             b = get_y_intercept(str_start, slope)
+
+#         start_x_shifted, start_y_shifted = shift_pt_along_street((str_start[0], str_start[1]), x_angle, 10, slope, b, quadrant)
+#         end_x_shifted, end_y_shifted = shift_pt_along_street((str_start[0], str_start[1]), x_angle, -10, slope, b, quadrant)
+#         return [[start_x_shifted, start_y_shifted], [end_x_shifted, end_y_shifted]]
+        
+    
+#     elif len(sorted_coords) > 2:
+#         str_start_1, str_end_1 =  sorted_coords[0], sorted_coords[1]
+#         x_angle = find_angle_to_x([str_start_1, str_end_1])
+#         slope = calculate_slope([str_start_1, str_end_1])
+#         if slope == None:
+#             b = 0
+#         else:
+#             b = get_y_intercept(str_start_1, slope)
+
+#         start_x_shifted, start_y_shifted = shift_pt_along_street((str_start_1[0], str_start_1[1]), x_angle, 10, slope, b, quadrant)
+#         if not segment_iteration_condition(slope, x_angle, str_start_1, str_end_1, start_x_shifted, start_y_shifted, quadrant):
+#             start_x_shifted, start_y_shifted = str_start_1[0], str_start_1[1]
+#         sorted_coords[0] = [start_x_shifted, start_y_shifted]
+
+#         str_start_2, str_end_2 =  sorted_coords[-2], sorted_coords[-1]
+#         x_angle = find_angle_to_x([str_start_2, str_end_2])
+#         slope = calculate_slope([str_start_2, str_end_2])
+#         if slope == None:
+#             b = 0
+#         else:
+#             b = get_y_intercept(str_start_2, slope)
+#         end_x_shifted, end_y_shifted = shift_pt_along_street((str_end_2[0], str_end_2[1]), x_angle, -10, slope, b, quadrant)
+#         if not segment_iteration_condition(slope, x_angle, str_start_1, str_end_1, start_x_shifted, start_y_shifted, quadrant):
+#             end_x_shifted, end_y_shifted = str_end_2[0], str_end_2[1]
+#         sorted_coords[-1] = [end_x_shifted, end_y_shifted]
+#         return sorted_coords
+
+
 def create_iteration_boxes(str_start, str_end, width, quadrant):
 
     iteration_segments = []
@@ -154,7 +197,7 @@ def write_street_sides_to_DB(cursor, con, iteration_boxes, segment_id, segmentat
 
 # for every segment in the segments table check, if the segment is sectioned into more than one piece (Len(coords) > 2) if yes => segment has a bend
 # for every segment add information if it is segmented and if yes the specific start end coordinates of the segmented segment to a table segments_segmentation
-def create_segmentation_and_iteration(db_config, db_user):
+def create_segmentation_and_iteration(db_config, db_user, shorten_segments):
     print('Creating segmentations and iteration boxes....')
     global log_start
     log_start = datetime.now()
@@ -166,7 +209,7 @@ def create_segmentation_and_iteration(db_config, db_user):
 
         for idx, res_item in enumerate(result):
             segment_id, segm_gid, geom_type, geom_coords = res_item[0], res_item[1], res_item[2], res_item[3]
-            print("segment id", segment_id)
+            print("segment id", idx, segment_id)
           
             # geom_type can be LineString or MultiLineString
             #TODO: Multilinestring
@@ -192,6 +235,11 @@ def create_segmentation_and_iteration(db_config, db_user):
                         print("[!!] ERROR CODE: No width for segment or multiple traffic areas: ", segment_id, "error code: ", width)
                         write_segmentation_values_to_DB(cursor, con, segment_id, width, width, width, width, width, width, width)
                         continue
+                
+                # shorten segments, becuase they stick out into crossroads area
+                # if shorten_segments:
+                #     shortened_coords = shorten_street_segments(sorted_coords, quadrant)
+                #     sorted_coords = shortened_coords
 
                 # if more than two coordinates, street has a bend => 
                 # partition the segment further and extract every two pairs of coordinate
@@ -215,6 +263,7 @@ def create_segmentation_and_iteration(db_config, db_user):
                     iteration_segments_bboxes = create_iteration_boxes(sorted_coords[0], sorted_coords[1], width, quadrant)
                     write_iteration_boxes_to_DB(cursor, con, iteration_segments_bboxes, segment_id, segmentation_counter)
                     write_street_sides_to_DB(cursor, con, iteration_segments_bboxes, segment_id, segmentation_counter) 
+
 
 # add the geometries as PostGIS geometries
 # in the loaded segments table intersect each segment with the ortsteile geometry and if there is an intersection, add the accoding ot_name to segments table
@@ -246,6 +295,6 @@ if __name__ == "__main__":
 
     # add_ot_to_segments(config_path, DB_USER)
     # create_segm_gid_relation(config_path, DB_USER)
-    create_segmentation_and_iteration(config_path, DB_USER)
+    create_segmentation_and_iteration(config_path, DB_USER, False)
 
     
