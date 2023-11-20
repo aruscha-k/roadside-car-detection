@@ -79,6 +79,7 @@ def list_recordings_in_bbox(srs_name, lower_corner, upper_corner):
     
     if response.status_code == 200:
         data_json = json.loads(response.text)
+        #print(response.text)
         
         recordings = []
         for feature in data_json['features']:

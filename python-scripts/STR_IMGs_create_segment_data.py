@@ -11,6 +11,7 @@ import PATH_CONFIGS as PATHS
 import os
 import psycopg2
 from datetime import datetime, timedelta
+import concurrent.futures
 
 log_start = None
 execution_file = "STR_IMGs_create_segment_data"
@@ -189,9 +190,76 @@ def is_recording_direction_equal_street_direction(viewing_direction, street_nort
 #  y_angle (float) angle in degrees of the deviation from north direction
 #  folder dir (string) path to the folder to save the imgs in
 #  rec_IDs of type {'recording_id': recording_id, 'recording_location': recording_location, 'recording_direction': recording_direction, 'recording_date_time': recording_datetime} 
-def get_image_IDs_from_cyclomedia(segment_id:int, segmentation_number:int, rec_IDs:list, north_deviation: float, max_distance:int, folder_dir:str):
+# def get_image_IDs_from_cyclomedia(segment_id:int, segmentation_number:int, rec_IDs:list, north_deviation: float, max_distance:int, folder_dir:str):
     
+#     print(f"[i] Getting image IDs and images from cyclo")
+#     if len(rec_IDs) == 0:
+#         return rec_IDs
+
+#     # for filesaving
+#     if segmentation_number < 10:
+#         segmentation_number = "0" + str(segmentation_number)
+
+#     for idx, item in enumerate(rec_IDs):
+   
+#         # if item['recording_id'] == ec.CYCLO_NO_REC_ID_SINGLE:
+#         #     log(execution_file=execution_file, img_type="cyclo", logstart=log_start, logtime=datetime.now(), message= f"No recording ID for segment: {segment_id}, error code: {ec.CYCLO_NO_REC_ID_SINGLE}")
+#         #     item['recording_point'] = (0,0)
+#         #     continue
+
+#         # viewing_direction =  get_viewing_direction(CONF.cyclo_srs, item['recording_id'])
+#         # item['viewing_direction'] = viewing_direction
+#           item['recording_year'] = dict_item['recording_date_time'].year
+#         recording_direction = item['recording_direction']
+#         equal_direction = is_recording_direction_equal_street_direction(recording_direction, north_deviation)
+
+#         if equal_direction:
+#             #direction 90/-90 would be on the right/left side of the car
+#             params = {'yaw': str(recording_direction), 'hfov': '80'}
+
+#         if not equal_direction:
+#             #print("NOT EQUAL:", segment_id, item['recording_id'])
+#             #direction 90/-90 would be on the right/left side of the car
+#             recording_direction += 180
+#             params = {'yaw': str(recording_direction), 'hfov': '80'}
+
+#         response, recording_lat, recording_lon = render_by_ID(CONF.cyclo_srs, item['recording_id'], params, False)
+#         item['recording_point'] = (recording_lat, recording_lon)
+
+#         if response.status_code == 200:
+
+#             # calc distance between streeet and recording point, if too large, cyclomedia didnt drive through the street
+#             #distance = calulate_distance_of_two_coords(item['recording_point'], item['street_point'])
+
+#             # if distance > max_distance:
+#             #     print("[!!!] MAX DIST not saving image")
+#             #     item['recording_id'] = ec.CYCLO_MAX_DIST
+#             #     item['recording_point'] = (0,0) 
+#             #     log(execution_file=execution_file, img_type="cyclo", logstart=log_start, logtime=datetime.now(), message= f"MAX distance for segment: {segment_id}, error code: {ec.CYCLO_MAX_DIST}")
+#             #     continue    
+        
+#             # else:
+
+#             if not os.path.exists(folder_dir):
+#                 os.mkdir(folder_dir)
+#             img_file_name = str(segment_id) + "_" + str(segmentation_number) + "_" + str(item['recording_id']) + ".jpg"
+            
+#             with open(folder_dir + img_file_name, 'wb') as file:
+#                 file.write(response.content)
+            
+#         else:
+#             print(f"[!!!] BAD STATUSCODE: for image with id: {item['recording_id']}")
+#             log(execution_file=execution_file, img_type="cyclo", logstart=log_start, logtime=datetime.now(), message= f"Bad cyclomedia status code for segment: {segment_id}, error code: {ec.CYCLO_BAD_RESPONSE_CODE}")
+#             item['recording_id'] = ec.CYCLO_BAD_RESPONSE_CODE
+#             item['recording_point'] = (0,0)
+#             continue
+
+#     return rec_IDs
+
+
+def get_image_IDs_from_cyclomedia(segment_id: int, segmentation_number: int, rec_IDs: list, north_deviation: float, max_distance: int, folder_dir: str):
     print(f"[i] Getting image IDs and images from cyclo")
+    
     if len(rec_IDs) == 0:
         return rec_IDs
 
@@ -199,58 +267,42 @@ def get_image_IDs_from_cyclomedia(segment_id:int, segmentation_number:int, rec_I
     if segmentation_number < 10:
         segmentation_number = "0" + str(segmentation_number)
 
-    for idx, item in enumerate(rec_IDs):
-   
-        # if item['recording_id'] == ec.CYCLO_NO_REC_ID_SINGLE:
-        #     log(execution_file=execution_file, img_type="cyclo", logstart=log_start, logtime=datetime.now(), message= f"No recording ID for segment: {segment_id}, error code: {ec.CYCLO_NO_REC_ID_SINGLE}")
-        #     item['recording_point'] = (0,0)
-        #     continue
+    def process_item(item):
+        nonlocal folder_dir
 
-        # viewing_direction =  get_viewing_direction(CONF.cyclo_srs, item['recording_id'])
-        # item['viewing_direction'] = viewing_direction
         recording_direction = item['recording_direction']
+        item['recording_year'] = item['recording_date_time'].year
+        
         equal_direction = is_recording_direction_equal_street_direction(recording_direction, north_deviation)
 
         if equal_direction:
-            #direction 90/-90 would be on the right/left side of the car
             params = {'yaw': str(recording_direction), 'hfov': '80'}
-
-        if not equal_direction:
-            #print("NOT EQUAL:", segment_id, item['recording_id'])
-            #direction 90/-90 would be on the right/left side of the car
+        else:
             recording_direction += 180
             params = {'yaw': str(recording_direction), 'hfov': '80'}
 
         response, recording_lat, recording_lon = render_by_ID(CONF.cyclo_srs, item['recording_id'], params, False)
-        item['recording_point'] = (recording_lat, recording_lon)
+        item['recording_location'] = (recording_lat, recording_lon)
 
         if response.status_code == 200:
-
-            # calc distance between streeet and recording point, if too large, cyclomedia didnt drive through the street
-            #distance = calulate_distance_of_two_coords(item['recording_point'], item['street_point'])
-
-            # if distance > max_distance:
-            #     print("[!!!] MAX DIST not saving image")
-            #     item['recording_id'] = ec.CYCLO_MAX_DIST
-            #     item['recording_point'] = (0,0) 
-            #     log(execution_file=execution_file, img_type="cyclo", logstart=log_start, logtime=datetime.now(), message= f"MAX distance for segment: {segment_id}, error code: {ec.CYCLO_MAX_DIST}")
-            #     continue    
-        
-            # else:
+            img_file_name = f"{segment_id}_{segmentation_number}_{item['recording_id']}.jpg"
+            img_path = os.path.join(folder_dir, img_file_name)
 
             if not os.path.exists(folder_dir):
-                os.mkdir(folder_dir)
-            img_file_name = str(segment_id) + "_" + str(segmentation_number) + "_" + str(item['recording_id']) + ".jpg"
-            
-            with open(folder_dir + img_file_name, 'wb') as file:
+                os.makedirs(folder_dir)
+
+            with open(img_path, 'wb') as file:
                 file.write(response.content)
-            
+
         else:
             print(f"[!!!] BAD STATUSCODE: for image with id: {item['recording_id']}")
-            log(execution_file=execution_file, img_type="cyclo", logstart=log_start, logtime=datetime.now(), message= f"Bad cyclomedia status code for segment: {segment_id}, error code: {ec.CYCLO_BAD_RESPONSE_CODE}")
+            log(execution_file=execution_file, img_type="cyclo", logstart=log_start, logtime=datetime.now(),
+                message=f"Bad cyclomedia status code for segment: {segment_id}, error code: {ec.CYCLO_BAD_RESPONSE_CODE}")
             item['recording_id'] = ec.CYCLO_BAD_RESPONSE_CODE
-            item['recording_point'] = (0,0)
-            continue
+            item['recording_location'] = (0, 0)
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        executor.map(process_item, rec_IDs)
 
     return rec_IDs
 
@@ -277,8 +329,8 @@ def load_into_db(rec_IDs, segment_id, segmentation_number, db_table, connection)
     else:
         for dict_item in rec_IDs:
             try:
-                record_lat, record_lon = dict_item['recording_point'][0], dict_item['recording_point'][1]
-                cursor.execute("""INSERT INTO {} VALUES (%s, %s, %s, %s, %s, %s) """.format(db_table), (segment_id, dict_item['recording_id'], segmentation_number, record_lat, record_lon, dict_item['recording_date_time'].year, ))
+                record_lat, record_lon = dict_item['recording_location'][0], dict_item['recording_location'][1]
+                cursor.execute("""INSERT INTO {} VALUES (%s, %s, %s, %s, %s, %s) """.format(db_table), (segment_id, dict_item['recording_id'], segmentation_number, record_lat, record_lon, dict_item['recording_year'], ))
                 connection.commit()
             except psycopg2.errors.UniqueViolation as e:
                 print(f"Value already in table. segment {segment_id}, segmentation number {segmentation_number} ")
@@ -329,7 +381,7 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, db_table, get_sideways_
                 elif len(segmentation_result_rows) == 1:
                     segmentation_no = segmentation_result_rows[0][0]
                     if segmentation_no == ec.WRONG_COORD_SORTING:
-                        rec_IDs = [{'recording_id': ec.WRONG_COORD_SORTING, 'street_point': (0,0), 'recording_point': (0,0), 'recording_year': 0}]
+                        rec_IDs = [{'recording_id': ec.WRONG_COORD_SORTING, 'recording_location': (0,0), 'recording_year': 0}]
                         load_into_db(rec_IDs=rec_IDs, segment_id=segment_id, segmentation_number=segmentation_no, db_table=db_table, connection=con)
                         log(execution_file=execution_file, img_type="cyclo", logstart=log_start, logtime=datetime.now(), message= f"Wrong coord sorting for segment: {segment_id}")
                         print("[!] information invalid - skip")
@@ -395,6 +447,9 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, db_table, get_sideways_
                             start_lat, start_lon = segmentation_result_rows[idx][1], segmentation_result_rows[idx][2]
                             end_lat, end_lon = segmentation_result_rows[idx][3], segmentation_result_rows[idx][4]
                             quadrant = segmentation_result_rows[idx][6]
+                            median_width = segmentation_result_rows[idx][5]
+                            temp_coords = [(start_lat, start_lon), (end_lat, end_lon)]
+                            bbox = calculate_bounding_box(temp_coords, median_width, quadrant)
                             #slope_origin = calculate_slope([(start_lat, start_lon), (end_lat, end_lon)])
                             north_deviation = calculate_street_deviation_from_north((start_lat, start_lon), (end_lat, end_lon))
                             print("START & END COORDS: ", (start_lat, start_lon), (end_lat, end_lon))                                                        
