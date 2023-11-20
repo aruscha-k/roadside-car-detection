@@ -14,14 +14,14 @@ if not os.path.exists(LOG_FILES):
     os.mkdir(LOG_FILES)
 
 DATASET_FOLDER_PATH = "datasets/complete/"
-extern_AIR_IMGS_FOLDER_PATH = "/Volumes/CUT-PARKPLATZ/datasets/"
+extern_AIR_IMGS_FOLDER_PATH = "/Volumes/PARKPLATZ/datasets/"
 
 DB_USER_ARUSCHA = os.path.join(RES_FOLDER_PATH, 'db_aruscha.json')
 DB_USER = DB_USER_ARUSCHA
 
 # ------ img resources --------#
 #IMG_FOLDER_PATH = "./imgs/"
-extern_IMG_FOLDER_PATH = "/Volumes/CUT-PARKPLATZ/imgs/"
+extern_IMG_FOLDER_PATH = "/Volumes/PARKPLATZ/imgs/"
 IMG_FOLDER_PATH = extern_IMG_FOLDER_PATH
 
 if not os.path.exists(IMG_FOLDER_PATH):

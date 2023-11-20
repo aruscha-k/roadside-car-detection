@@ -163,7 +163,7 @@
             {"name": "right_coordinates", "type": "jsonb"}
         ],
         "constraints":{
-            "primaryKey": ["segment_id", "iteration_number"],
+            "primaryKey": ["segment_id", "segmentation_number", "iteration_number"],
             "not null": ["segment_id", "segmentation_number", "iteration_number"]
         }
     },
@@ -178,7 +178,7 @@
             {"name": "recording_year", "type": "int" }
         ],
         "constraints": {
-            "primaryKey": ["segment_id", "recording_id", "segmentation_number", "order_number"]
+            "primaryKey": ["segment_id", "recording_id", "segmentation_number"]
         }
     },
     {

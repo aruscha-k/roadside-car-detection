@@ -55,96 +55,91 @@ def list_nearest_recordings(srs, lat, lon, params, print_url):
     return response
 
 # 
-def list_recordings_in_bbox(srs_name, lower_corner, upper_corner, bbox):
+def list_recordings_in_bbox(srs_name, lower_corner, upper_corner):
     auth = (CONF.cyclo_user_aruscha, CONF.cyclo_pwd_aruscha)
 
     param_url = f"""&srsname=EPSG:{srs_name}&typename=atlas:Recording&filter=
-                    <Filter><And>
-                        <BBOX><gml:Envelope srsName='EPSG:25833'><gml:lowerCorner>{str(lower_corner[0])} {str(lower_corner[1])}</gml:lowerCorner><gml:upperCorner>{str(upper_corner[0])} {str(lower_corner[1])}</gml:upperCorner></gml:Envelope></BBOX>
-                        <PropertyIsNull><PropertyName>expiredAt</PropertyName></PropertyIsNull></And>
-                    </Filter>&outputFormat=application/json"""
-
+        <Filter><And><BBOX><gml:Envelope srsName='EPSG:25833'><gml:lowerCorner>{str(lower_corner[0])} {str(lower_corner[1])}</gml:lowerCorner><gml:upperCorner>{str(upper_corner[0])} {str(upper_corner[1])}</gml:upperCorner></gml:Envelope></BBOX>
+                    <PropertyIsNull><PropertyName>expiredAt</PropertyName></PropertyIsNull>
+        </And></Filter>&outputFormat=application/json"""
+    #param_url_2 = f"""&srsname=EPSG:55567837&typename=atlas:Recording&filter=<Filter><And><BBOX><gml:Envelope srsName='EPSG:25833'><gml:lowerCorner>316594.77332640265 5689274.023277957</gml:lowerCorner><gml:upperCorner>316649.2428735968 5689295.63952204</gml:upperCorner></gml:Envelope></BBOX><PropertyIsNull><PropertyName>expiredAt</PropertyName></PropertyIsNull></And></Filter>&outputFormat=application/json"""
+    
     request_url = global_base_url_atlas + param_url
-    print(request_url)
+    #print(request_url)
 
     retry_strategy = Retry(
         total=3,
         status_forcelist=[429, 500, 502, 503, 504],
         allowed_methods=["HEAD", "GET", "OPTIONS"]
     )
-    # adapter = HTTPAdapter(max_retries=retry_strategy)
-    # http = requests.Session()
-    # http.mount("https://", adapter)
-    # response = http.get(url=request_url, auth=auth)
-    response = requests.get(request_url,auth=auth)
-    print(response.text)
-    data_json = json.loads(response.text)
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    http = requests.Session()
+    http.mount("https://", adapter)
+    response = http.get(url=request_url, auth=auth)
     
-    recordings = []
-    for feature in data_json['features']:
-        try:
-            recording_id = feature['id']
-            recording_location = (feature['geometry']['coordinates'][0], feature['geometry']['coordinates'][1]) #[2] is z height
-            recording_direction = round(feature['properties']['recorderDirection'], 2)
-            recording_datetime = parser.parse(feature['properties']['recordedAt'].replace("T", " ")).astimezone(timezone.utc)
-            #hours_offset = int(recording_datetime.utcoffset().total_seconds() / 3600) #3600 seconds in an hour
-            recordings.append({'recording_id': recording_id, 'recording_location': recording_location, 'recording_direction': recording_direction, 'recording_date_time': recording_datetime})
+    if response.status_code == 200:
+        data_json = json.loads(response.text)
         
-        except KeyError:
-            print("[!] No viewing direction")
+        recordings = []
+        for feature in data_json['features']:
+            try:
+                recording_id = feature['id']
+                recording_location = (feature['geometry']['coordinates'][0], feature['geometry']['coordinates'][1]) #[2] is z height
+                recording_direction = round(feature['properties']['recorderDirection'], 2)
+                recording_datetime = parser.parse(feature['properties']['recordedAt'].replace("T", " ")).astimezone(timezone.utc)
+                recordings.append({'recording_id': recording_id, 'recording_location': recording_location, 'recording_direction': recording_direction, 'recording_date_time': recording_datetime})
+            
+            except KeyError:
+                print("[!] API CALL: invalid key when parsing JSON")
 
-    print(recordings, len(recordings))
-    return recordings
+        return recordings
 
 
-def list_recordings_post_request(bbox):
-    auth = (CONF.cyclo_user_aruscha, CONF.cyclo_pwd_aruscha)
+# def list_recordings_post_request(bbox):
+#     auth = (CONF.cyclo_user_aruscha, CONF.cyclo_pwd_aruscha)
+#     url = "https://atlas.cyclomedia.com/api/recording/wfs"
 
-
-    url = "https://atlas.cyclomedia.com/recording/wfs"
-
-    body = f""" 
-        <wfs:GetFeature service="WFS" version="1.1.0" resultType="results" outputFormat="application/json" xmlns:wfs="http://www.opengis.net/wfs">
-            <wfs:Query typeName="atlas:Recording" srsName="EPSG:25833" xmlns:atlas="http://www.cyclomedia.com/atlas">
-            <ogc:Filter xmlns:ogc="http://www.opengis.net/ogc"> 
-                <ogc:And>
-                    <ogc:Within>
-                        <ogc:PropertyName>location</ogc:PropertyName>
-                            <gml:Polygon xmlns:gml="http://www.opengis.net/gml" srsName="EPSG:25833">
-                                <gml:exterior>
-                                    <gml:LinearRing>
-                                        <gml:posList>{str(bbox[0][0])} {str(bbox[0][1])} {str(bbox[1][0])} {str(bbox[1][1])} {str(bbox[2][0])} {str(bbox[2][1])} {str(bbox[3][0])} {str(bbox[3][1])} {str(bbox[0][0])} {str(bbox[0][1])}</gml:posList>
-                                    </gml:LinearRing>
-                                </gml:exterior>
-                            </gml:Polygon>
-                    </ogc:Within>   
-                    <ogc:PropertyIsNull>
-                        <ogc:PropertyName>expiredAt</ogc:PropertyName>
-                    </ogc:PropertyIsNull>
-                </ogc:And>
-            </ogc:Filter>
-            </wfs:Query> 
-        </wfs:GetFeature>"""
-    #    <ogc:PropertyIsGreaterThanOrEqualTo>
-                    #     <ogc:PropertyName>recordedAt</ogc:PropertyName><ogc:Literal>2022-12-31T23:00:00-00:00</ogc:Literal>
-                    # </ogc:PropertyIsGreaterThanOrEqualTo>
-                    # <ogc:PropertyIsLessThanOrEqualTo>
-                    #     <ogc:PropertyName>recordedAt</ogc:PropertyName><ogc:Literal>2023-12-31T07:49:05-00:00</ogc:Literal>
-                    # </ogc:PropertyIsLessThanOrEqualTo>
+#     body = f""" 
+#         <wfs:GetFeature service="WFS" version="1.1.0" resultType="results" outputFormat="application/json" xmlns:wfs="http://www.opengis.net/wfs">
+#             <wfs:Query typeName="atlas:Recording" srsName="EPSG:55567837" xmlns:atlas="http://www.cyclomedia.com/atlas">
+#             <ogc:Filter xmlns:ogc="http://www.opengis.net/ogc"> 
+#                 <ogc:And>
+#                     <ogc:Intersects>
+#                         <ogc:PropertyName>location</ogc:PropertyName>
+#                             <gml:Polygon xmlns:gml="http://www.opengis.net/gml" srsName="EPSG:25833">
+#                                 <gml:exterior>
+#                                     <gml:LinearRing>
+#                                         <gml:posList>316647.2017264023 5689274.023277957 316594.77332640265 5689281.700677957 316596.8144735971 5689295.63952204 316649.2428735968 5689287.962122041 316647.2017264023 5689274.023277957</gml:posList>
+#                                     </gml:LinearRing>
+#                                 </gml:exterior>
+#                             </gml:Polygon>
+#                     </ogc:Intersects>   
+#                     <ogc:PropertyIsNull>
+#                         <ogc:PropertyName>expiredAt</ogc:PropertyName>
+#                     </ogc:PropertyIsNull>
+#                     <ogc:PropertyIsGreaterThanOrEqualTo>
+#                         <ogc:PropertyName>recordedAt</ogc:PropertyName><ogc:Literal>2022-12-31T23:00:00-00:00</ogc:Literal>
+#                     </ogc:PropertyIsGreaterThanOrEqualTo>
+#                     <ogc:PropertyIsLessThanOrEqualTo>
+#                         <ogc:PropertyName>recordedAt</ogc:PropertyName><ogc:Literal>2023-12-31T07:49:05-00:00</ogc:Literal>
+#                     </ogc:PropertyIsLessThanOrEqualTo>
+#                 </ogc:And>
+#             </ogc:Filter>
+#             </wfs:Query> 
+#         </wfs:GetFeature>
+#        """
     
-    # Define headers for the POST request
-    headers = {"Content-Type": "text/xml",
-               "Authorization": f"{CONF.cyclo_api_key}"}
+#     # Define headers for the POST request
+#     headers = {"Content-Type": "text/xml",
+#                "Authorization": f"{CONF.cyclo_api_key}"}
 
-    # Make the POST request
-    response = requests.post(url, data=body, headers=headers, auth=auth)
-    data_json = json.loads(response.text)
-    print(body)
+#     # Make the POST request
+#     response = requests.post(url, data=body, headers=headers, auth=auth)
     
-    # recordings = []
-    for feature in data_json['features']:
-        print(feature)
-    print(len(data_json['features']))
+#     if response.status_code == 200:
+#         data_json = json.loads(response.text)
+
+
     
 
 def render_by_ID(srs_name, recording_id, params, print_url):
@@ -287,73 +282,3 @@ def get_all_recording_ids(recordings_response):
 
 
 # if __name__ == "__main__":
-    # lower_corner = (316450.8576064481,5689077.165627038)
-    # upper_corner =  (316427.3791935521,5689114.672772961)
-    # bbox = [
-#    [
-#     309777.488,
-#     5684204.20
-#   ],
-#   [
-#     309783.61,
-#     5684152.23
-#   ],
-#   [
-#     309773.52,
-#     5684151.04
-#   ],
-#   [
-#     309767.39,
-#     5684203.01
-#   ]
-# ]
-
-#     min_lat = min(bbox, key=lambda x: x[0])[0]
-#     max_lat = max(bbox, key=lambda x: x[0])[0]
-#     min_lon = min(bbox, key=lambda x: x[1])[1]
-#     max_lon = max(bbox, key=lambda x: x[1])[1]
-
-#     # Determine the corners based on the calculations
-#     lower_corner = (min_lat, min_lon)
-#     upper_corner = (max_lat, max_lon)
-
-#     print(lower_corner, upper_corner)
-#     #(314351.62, 5690085.14), (314793.94, 5690492.90)
-    
-#     recordings = list_recordings_in_bbox(CONF.cyclo_srs, lower_corner, upper_corner, bbox)
-    # print(len(recordings))
-    # datetime_objects = [item['recording_date_time'] for item in recordings]
-
-
-    # for idx, item in enumerate(sorted(datetime_objects)):
-    #     print(item, recordings[idx]['recording_id'])
-    
-    # # Define the time difference threshold (2 minutes)
-    # threshold = timedelta(minutes=5)
-    # indices = []
-    # # Compare pairwise datetime objects
-    # for i in range(len(datetime_objects)):
-    #     try:
-    #         time_difference = abs(datetime_objects[i] - datetime_objects[i+1])
-    #         if time_difference > threshold:
-    #             indices.append(i)
-    #     except IndexError:
-    #         break
-            
-    # print(indices)
-
-    # if indices != []:
-    #     time_junks = []
-    #     start, end = 0, len(datetime_objects)
-    #     for idx in indices:
-    #         time_junks.append(datetime_objects[start:idx])
-    #         start = idx
-    #     time_junks.append(datetime_objects[start:end])
-    #     print(max(time_junks, key=len), len(max(time_junks, key=len)))
-        
-    #bbox = [(314351.62, 5690085.14), (314171.02, 5690559.69), (314793.94, 5690492.90), (314552.36, 5689995.28), (314351.62, 5690085.14)]    
-    # newbox = []
-    # for item in bbox:
-    #     newbox.append((item[1], item[0]))
-    # print(newbox)
-    # list_recordings_post_request(newbox)
