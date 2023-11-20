@@ -130,7 +130,7 @@ def compare_iteration_result_per_image_type(results_per_side):
                 return air_parking_value, air_parking_percentage
             # if both have same percentage TODO
             elif air_parking_percentage == cyclo_parking_percentage:
-                return "", 0
+                return "TIE: " + air_parking_value + "," + cyclo_parking_value, air_parking_percentage
 
     # if there is only one result from one image type, return it after applying weights
     if len(results_per_side) == 1:

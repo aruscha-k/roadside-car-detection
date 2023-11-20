@@ -52,6 +52,7 @@ def create_air_segments(db_config_path, db_user, suburb_list):
             # in tif
             in_tif = DATASET_FOLDER_PATH + "air-imgs/" + str(recording_year) +"/" + str(ot_nr) +"_"+ str(recording_year) + ".tif"
             if not os.path.exists(in_tif):
+                print("[!] No input TIF to cut out from")
                 continue
 
             for i, segment_id in enumerate(segment_id_list):

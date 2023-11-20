@@ -1,6 +1,6 @@
 
 from DB_helpers import open_connection
-from PATH_CONFIGS import CYCLO_IMG_FOLDER_PATH, AIR_TEMP_CROPPED_FOLDER_PATH, RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, DB_USER
+from PATH_CONFIGS import CYCLO_IMG_FOLDER_PATH, AIR_CROPPED_ITERATION_FOLDER_PATH, RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, DB_USER
 from ML_IMGs_methods import run_detection
 import ERROR_CODES as ec
 from LOG import log
@@ -31,7 +31,10 @@ def add_image_to_list(img_folder, img_file, img_position_information, img_path_a
         list: list with or without the checked image file
     """
     if os.path.exists(os.path.join(img_folder, img_file)):
-        img_path_and_position_list.append((img_file, img_position_information))
+        if img_type == "air":
+            img_path_and_position_list.append((img_file, img_position_information))
+        elif img_type == "cyclo":
+            img_path_and_position_list.append((os.path.join(img_folder, img_file), img_position_information))
         return img_path_and_position_list
     else:
         print("[!!] invalid path", img_folder + img_file)
@@ -116,7 +119,8 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
 
                         img_path_and_position_list = []
                         if img_type == "cyclo":
-                            cursor.execute("""SELECT recording_id, recording_lat, recording_lon FROM segments_cyclomedia WHERE segment_id = %s AND segmentation_number = %s""", (segment_id, segmentation_number, ))
+                            
+                            cursor.execute("""SELECT recording_id, recording_lat, recording_lon FROM segments_cyclomedia_newmethod WHERE segment_id = %s AND segmentation_number = %s""", (segment_id, segmentation_number, ))
                             cyclo_rows = cursor.fetchall()
                             for row in cyclo_rows:
                             
@@ -129,22 +133,9 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
                                     segmentation_no_string = str(segmentation_number)
             
                                 img_file_name = str(segment_id)+ "_" + segmentation_no_string +  "_" + str(recording_id) + ".jpg"
-                                img_path_and_position_list = add_image_to_list(img_folder = CYCLO_IMG_FOLDER_PATH, img_file = img_file_name, img_position_information = (recording_lat, recording_lon), img_path_and_position_list = img_path_and_position_list, img_type=img_type, segment_id=segment_id)
-                            
-                        elif img_type == "air":
-                            cursor.execute("""SELECT bbox FROM segments_air WHERE segment_id = %s AND segmentation_number = %s""", (segment_id, segmentation_number, ))
-                            segment_bbox = cursor.fetchone()
-                            if segment_bbox != None:
-                                segment_bbox = list(segment_bbox[0])
-          
-                            img_file_name = str(ot_name) + "_" +  str(segment_id)+ "_" + str(segmentation_number) + ".tif"
-                            img_path_and_position_list = add_image_to_list(img_folder = AIR_TEMP_CROPPED_FOLDER_PATH, img_file = img_file_name, img_position_information = segment_bbox, img_path_and_position_list = img_path_and_position_list, img_type=img_type, segment_id=segment_id)
-                            
-                        # if no images were found for segment, skip parking detection
-                        if img_path_and_position_list == []:
-                            print("No images for iteration")
-                            log(execution_file = execution_file, img_type=img_type, logstart=log_start, logtime=datetime.now(), message=f"{segment_id}, {segmentation_number}: For segment_id and segmentation number there are no images to detect cars on.")
-                            continue
+                                img_folder = CYCLO_IMG_FOLDER_PATH + ot_name + "/"
+                                img_path_and_position_list = add_image_to_list(img_folder = img_folder, img_file = img_file_name, img_position_information = (recording_lat, recording_lon), img_path_and_position_list = img_path_and_position_list, img_type=img_type, segment_id=segment_id)
+           
 
                         iter_information = {}
                         for iteration_row in iteration_result_rows:
@@ -154,6 +145,16 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
                             iteration_poly = [left_coords[0], left_coords[1], right_coords[1], right_coords[0]]
                             iter_information[iteration_number] = iteration_poly
 
+                            if img_type == "air":
+                                img_file_name = str(ot_name) + "_" +  str(segment_id)+ "_" + str(segmentation_number) + "_" + str(iteration_number) + ".tif"
+                                img_path_and_position_list = add_image_to_list(img_folder = AIR_CROPPED_ITERATION_FOLDER_PATH, img_file = img_file_name, img_position_information = iteration_poly, img_path_and_position_list = img_path_and_position_list, img_type=img_type, segment_id=segment_id)
+
+                        # if no images were found for segment, skip parking detection
+                        if img_path_and_position_list == []:
+                            print("No images for iteration")
+                            log(execution_file = execution_file, img_type=img_type, logstart=log_start, logtime=datetime.now(), message=f"{segment_id}, {segmentation_number}: For segment_id and segmentation number there are no images to detect cars on.")
+                            continue
+                        
                         parking_dict = run_detection(img_path_and_position_list, img_type, iter_information)
 
                         # write to DB # parking_dict = {iteration_number: {'left': (parking, percentage), 'right': (parking, percentage)}}
@@ -173,8 +174,8 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
 if __name__ == "__main__":
 
     db_config_path = os.path.join(RES_FOLDER_PATH, DB_CONFIG_FILE_NAME)
-    run(db_config_path, DB_USER, [], img_type="cyclo", result_table_name="parking_cyclomedia")
-    #run(db_config_path, DB_USER, [], img_type="air", result_table_name="parking_air")
+    run(db_config_path, DB_USER, ['Südvorstadt'], img_type="cyclo", result_table_name="parking_cyclomedia_newmethod")
+    # run(db_config_path, DB_USER, ['Südvorstadt'], img_type="air", result_table_name="parking_air")
 
 
 #https://atlas.cyclomedia.com/PanoramaRendering/Render/WE4IK5SE/?apiKey=2_4lO_8ZuXEBuXY5m7oVWzE1KX41mvcd-PQZ2vElan85eLY9CPsdCLstCvYRWrQ5&srsName=epsg:55567837&direction=0&hfov=80
