@@ -271,6 +271,9 @@ def run_detection(img_filename_and_position_list, ot_name, img_type, iter_inform
                     predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = 'right', predicted_classes_for_side = [item[1] for item in im_right], predictions = predictions[iteration_number])
 
                     demo_img_folder = os.path.join(DEMO_CYCLO_DETECTION_FOLDER_PATH, ot_name + "/")
+                    
+                    if not os.path.exists(demo_img_folder):
+                        os.mkdir(demo_img_folder)
                     visualize_and_save_prediction_img(img, instances, "cyclo", show_img = False, save_img = True, pred_img_filepath = demo_img_folder + img_filename) #for scads demo, save the image file with predictions
 
         if img_type == "air":
@@ -293,6 +296,8 @@ def run_detection(img_filename_and_position_list, ot_name, img_type, iter_inform
             classes = instances.pred_classes.cpu().numpy()
 
             demo_img_folder = os.path.join(DEMO_AIR_DETECTION_FOLDER_PATH, ot_name + "/")
+            if not os.path.exists(demo_img_folder):
+                os.mkdir(demo_img_folder)
             visualize_and_save_prediction_img(cropped_rotated_img, instances, "air", show_img = False, save_img = True, pred_img_filepath = demo_img_folder + img_file_name + ".jpg") #for scads demo, save the image file with predictions
 
             # if img_type == "air":
