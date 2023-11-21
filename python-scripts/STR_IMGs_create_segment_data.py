@@ -1,9 +1,9 @@
 import ERROR_CODES as ec
 from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME
 from DB_helpers import open_connection
-from helpers_geometry import calculate_street_deviation_from_north, find_angle_to_x, get_y_intercept, segment_iteration_condition, calculate_slope, calculate_bounding_box
-from helpers_coordiantes import calulate_distance_of_two_coords, shift_pt_along_street
-from STR_IMGs_api_calls import list_nearest_recordings, get_recording_id, render_by_ID, get_viewing_direction, list_recordings_in_bbox
+from helpers_geometry import calculate_street_deviation_from_north, calculate_bounding_box
+from helpers_coordiantes import is_point_within_polygon
+from STR_IMGs_api_calls import render_by_ID, list_recordings_in_bbox
 from LOG import log
 import STR_IMGs_config as CONF
 import PATH_CONFIGS as PATHS
@@ -112,22 +112,24 @@ def check_for_only_error_values(rec_IDs):
 
 
 def get_recordings_for_segment(bbox):
+    # Determine lower and upper corner based on the calculations
     min_lat = min(bbox, key=lambda x: x[0])[0]
     max_lat = max(bbox, key=lambda x: x[0])[0]
     min_lon = min(bbox, key=lambda x: x[1])[1]
     max_lon = max(bbox, key=lambda x: x[1])[1]
-
-    # Determine the corners based on the calculations
     lower_corner, upper_corner= (min_lat, min_lon), (max_lat, max_lon)
     #print(lower_corner, upper_corner)
 
-    # recordings format {'recording_id': recording_id, 'recording_location': recording_location, 'recording_direction': recording_direction, 'recording_date_time': recording_datetime}
+    # recordings format {'recording_id': .., 'recording_location': .., 'recording_direction': .., 'recording_date_time': ..}
     recordings = list_recordings_in_bbox(CONF.cyclo_srs, lower_corner, upper_corner)
+    
     if recordings != []:
- 
+        # clean out recordings again, using the real street bbox
+        recordings_within_street_bbox = [item for item in recordings if is_point_within_polygon(item['recording_location'], bbox)]
+
         # clean out recordings that deviate too much in time, get time junks that are on one stretch meaning, the time gap between two recordings should not be larger than the set threshold of 5 minutes
-        # sort recordings by property recording date time (is ascending order)
-        sorted_recordings = sorted(recordings, key=lambda x: x['recording_date_time'])
+        # sort recordings by property recording date time (= ascending order)
+        sorted_recordings = sorted(recordings_within_street_bbox, key=lambda x: x['recording_date_time'])
         
         # Define the time difference threshold (5 minutes)
         threshold = timedelta(minutes=5)
@@ -140,15 +142,14 @@ def get_recordings_for_segment(bbox):
                     indices.append(i)
             except IndexError:
                 break
-                
-        print(indices)
+        # print("indices:", indices)
 
         if indices != []:
             time_junks = []
             start, end = 0, len(sorted_recordings)
             for idx in indices:
-                time_junks.append(sorted_recordings[start:idx])
-                start = idx
+                time_junks.append(sorted_recordings[start:idx+1])
+                start = idx+1 #because last slice is not includes
             time_junks.append(sorted_recordings[start:end])
             # return the biggest time junk
             return max(time_junks, key=len)
@@ -189,7 +190,6 @@ def is_recording_direction_equal_street_direction(viewing_direction, street_nort
 #  max_distance (float) a threshold value how far apart a recording point and the street point for which the recoridng point is are allowed to be apart
 #  y_angle (float) angle in degrees of the deviation from north direction
 #  folder dir (string) path to the folder to save the imgs in
-#  rec_IDs of type {'recording_id': recording_id, 'recording_location': recording_location, 'recording_direction': recording_direction, 'recording_date_time': recording_datetime} 
 # def get_image_IDs_from_cyclomedia(segment_id:int, segmentation_number:int, rec_IDs:list, north_deviation: float, max_distance:int, folder_dir:str):
     
 #     print(f"[i] Getting image IDs and images from cyclo")
@@ -342,7 +342,7 @@ def load_into_db(rec_IDs, segment_id, segmentation_number, db_table, connection)
 # PARAMS:
 #  suburb_list = [ot_name, ..], in this case ot_nr is not relevant
 #  get_sideways_imgs (bool) if for each recording point the sideways direction of 90/-90 should be extracted as well (takes 3 times longer)
-def get_cyclomedia_data(db_config, db_user, suburb_list, db_table, get_sideways_imgs):
+def get_cyclomedia_data(db_config, db_user, suburb_list, cyclo_segment_db_table, get_sideways_imgs):
     print("getting cyclomedia data...")
     global log_start 
     log_start = datetime.now()
@@ -353,7 +353,7 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, db_table, get_sideways_
         if suburb_list == []:
              # get ortsteile and their number codes
             cursor.execute("""SELECT ot_name FROM ortsteile""")
-            suburb_list = cursor.fetchall()
+            suburb_list = [item[0] for item in cursor.fetchall()]
         
         for ot_name in suburb_list:
             print("getting cyclomedia data for ", ot_name)
@@ -382,14 +382,14 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, db_table, get_sideways_
                     segmentation_no = segmentation_result_rows[0][0]
                     if segmentation_no == ec.WRONG_COORD_SORTING:
                         rec_IDs = [{'recording_id': ec.WRONG_COORD_SORTING, 'recording_location': (0,0), 'recording_year': 0}]
-                        load_into_db(rec_IDs=rec_IDs, segment_id=segment_id, segmentation_number=segmentation_no, db_table=db_table, connection=con)
+                        load_into_db(rec_IDs=rec_IDs, segment_id=segment_id, segmentation_number=segmentation_no, db_table=cyclo_segment_db_table, connection=con)
                         log(execution_file=execution_file, img_type="cyclo", logstart=log_start, logtime=datetime.now(), message= f"Wrong coord sorting for segment: {segment_id}")
                         print("[!] information invalid - skip")
                         continue
 
                 # check if the data already exists: aggregate all cyclomedia record_ids to the segmentation number and compare with the segmentation number
                 # TODO: doestn work, when segmentation =0) and there is one entry even though there should be more
-                cursor.execute("""SELECT array_agg(segmentation_number) FROM {} WHERE segment_id = %s GROUP BY segmentation_number""".format(db_table), (segment_id, ))
+                cursor.execute("""SELECT array_agg(segmentation_number) FROM {} WHERE segment_id = %s GROUP BY segmentation_number""".format(cyclo_segment_db_table), (segment_id, ))
                 cyclo_result_rows = cursor.fetchall()
                 if len(cyclo_result_rows) == len(segmentation_result_rows): 
                     print("EXIST - SKIP")
@@ -412,8 +412,7 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, db_table, get_sideways_
 
                 elif multiple_areas[0] == False:
 
-
-                    shift_length = 3
+                    # shift_length = 3
                     # segment is not divided into smaller parts
                     if len(segmentation_result_rows) == 1:
                         segmentation_number = segmentation_result_rows[0][0]
@@ -431,7 +430,7 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, db_table, get_sideways_
                         recordings = get_recordings_for_segment(bbox) 
                         img_folder_dir = PATHS.CYCLO_IMG_FOLDER_PATH + ot_name + "/"
                         rec_IDs = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = recordings, north_deviation = north_deviation, max_distance = 9, folder_dir= img_folder_dir)
-                        load_into_db(rec_IDs=rec_IDs, segment_id = segment_id, segmentation_number=segmentation_number, db_table=db_table, connection=con)
+                        load_into_db(rec_IDs=rec_IDs, segment_id = segment_id, segmentation_number=segmentation_number, db_table=cyclo_segment_db_table, connection=con)
 
                         # if get_sideways_imgs: #TODO
                         #     # right side??
@@ -458,7 +457,7 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, db_table, get_sideways_
                             recordings = get_recordings_for_segment(bbox) 
                             img_folder_dir = PATHS.CYCLO_IMG_FOLDER_PATH + ot_name + "/"
                             rec_IDs = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = recordings, north_deviation = north_deviation, max_distance = 9, folder_dir= img_folder_dir)
-                            load_into_db(rec_IDs=rec_IDs, segment_id=segment_id, segmentation_number=segmentation_number, db_table=db_table, connection=con)
+                            load_into_db(rec_IDs=rec_IDs, segment_id=segment_id, segmentation_number=segmentation_number, db_table=cyclo_segment_db_table, connection=con)
 
                             # if get_sideways_imgs: # TODO
                             #     # right side??
@@ -471,5 +470,5 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, db_table, get_sideways_
 
 if __name__ == "__main__":
     config_path = f'{RES_FOLDER_PATH}/{DB_CONFIG_FILE_NAME}'
-                                                    #suburb list = tuple (sstr, int)
-    get_cyclomedia_data(config_path, PATHS.DB_USER, suburb_list=['Südvorstadt'], db_table="segments_cyclomedia_newmethod", get_sideways_imgs = False)
+                                                    #suburb list = [string, ]
+    get_cyclomedia_data(config_path, PATHS.DB_USER, suburb_list=[], cyclo_segment_db_table="segments_cyclomedia_newmethod", get_sideways_imgs = False)
