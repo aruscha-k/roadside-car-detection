@@ -224,11 +224,11 @@ def calculate_parking(predictions, img_type):
     return parking_dict
 
 
-def run_detection(img_path_and_position_list, img_type, iter_information_dict):
+def run_detection(img_filename_and_position_list, ot_name, img_type, iter_information_dict):
     """ run method: for one street segment, use all images to detect parking situation on
 
     Args:
-        img_path_and_position_list (list): containing the path to image and a position information for cyclo: (imgpath, (recording_lat, recording_lon)), for air: (imgpath, segment_bbox)
+        img_filename_and_position_list (list): containing the filename of image (without path) and a position information for cyclo: (imgpath, (recording_lat, recording_lon)), for air: (imgpath, segment_bbox)
         img_type (string): "air" / "cyclo"
         iter_information_dict (dict): key = iteration_number, value = iteration_poly (bbox)
 
@@ -254,11 +254,12 @@ def run_detection(img_path_and_position_list, img_type, iter_information_dict):
         if img_type == "cyclo":
             left, right = [], []
             # find the recordings that lie within the iteration box
-            iteration_record_id_list = [img_file for img_file, (recording_lat, recording_lon) in img_path_and_position_list if is_point_within_polygon((recording_lat, recording_lon), iteration_poly)]
+            iteration_record_id_list = [img_filename for img_filename, (recording_lat, recording_lon) in img_filename_and_position_list if is_point_within_polygon((recording_lat, recording_lon), iteration_poly)]
 
             # for each image make predictions, assign left and right side and save (bounding box, class) to each left and right
-            for img_file in iteration_record_id_list:
-                img = cv2.imread(os.path.join(CYCLO_IMG_FOLDER_PATH, img_file))
+            for img_filename in iteration_record_id_list:
+                folder_path = os.path.join(CYCLO_IMG_FOLDER_PATH, ot_name + "/")
+                img = cv2.imread(os.path.join(folder_path, img_filename))
                 if img is not None:
                     img = add_no_detection_area_for_cyclo(img)
                     outputs = predictor(img)
@@ -269,12 +270,13 @@ def run_detection(img_path_and_position_list, img_type, iter_information_dict):
                     predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = 'left', predicted_classes_for_side = [item[1] for item in im_left],  predictions = predictions[iteration_number])
                     predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = 'right', predicted_classes_for_side = [item[1] for item in im_right], predictions = predictions[iteration_number])
 
-                    visualize_and_save_prediction_img(os.path.join(CYCLO_IMG_FOLDER_PATH, img_file), instances, "cyclo", show_img = False, save_img = True, pred_img_filepath = DEMO_CYCLO_DETECTION_FOLDER_PATH + img_file) #for scads demo, save the image file with predictions
+                    demo_img_folder = os.path.join(DEMO_CYCLO_DETECTION_FOLDER_PATH, ot_name + "/")
+                    visualize_and_save_prediction_img(img, instances, "cyclo", show_img = False, save_img = True, pred_img_filepath = demo_img_folder + img_filename) #for scads demo, save the image file with predictions
 
         if img_type == "air":
-            img_file_name = img_path_and_position_list[idx][0]
+            img_file_name = img_filename_and_position_list[idx][0]
             img_file_name = img_file_name[:-4]
-            bbox = img_path_and_position_list[idx][1]
+            bbox = img_filename_and_position_list[idx][1]
             
             transform_matrix, tiff_matrix, out_img_path = transform_air_img(img_file_name, bbox, out_file_type=".tif")
             cropped_rotated_img = cv2.imread(out_img_path)
@@ -290,7 +292,8 @@ def run_detection(img_path_and_position_list, img_type, iter_information_dict):
             bboxes = instances.pred_boxes.tensor.cpu().numpy()
             classes = instances.pred_classes.cpu().numpy()
 
-            visualize_and_save_prediction_img(out_img_path, instances, "air", show_img = False, save_img = True, pred_img_filepath = DEMO_AIR_DETECTION_FOLDER_PATH + img_file_name + ".jpg") #for scads demo, save the image file with predictions
+            demo_img_folder = os.path.join(DEMO_AIR_DETECTION_FOLDER_PATH, ot_name + "/")
+            visualize_and_save_prediction_img(cropped_rotated_img, instances, "air", show_img = False, save_img = True, pred_img_filepath = demo_img_folder + img_file_name + ".jpg") #for scads demo, save the image file with predictions
 
             # if img_type == "air":
             # px_bbox = transform_coordinates_to_pixel(iteration_poly, tiff_matrix)
@@ -343,19 +346,18 @@ def assign_predictions_to_side_and_iteration(side, predicted_classes_for_side, p
 
 # -------- for debug and demo ----------------
 # visualize prediction for 1 image
-def visualize_and_save_prediction_img(filename, instances, img_type, show_img, save_img, pred_img_filepath):
+def visualize_and_save_prediction_img(cv2_image, instances, img_type, show_img, save_img, pred_img_filepath):
     
-    im = cv2.imread(filename)
-
+    #im = cv2.imread(filename)
     if img_type == "air":
         metadata = {"thing_classes": ['p', 'd/s']}
        
     elif img_type == "cyclo":
         metadata = {"thing_classes": ['parallel', 'diagonal/senkrecht']}
-        im = add_no_detection_area_for_cyclo(im)
+        cv2_image = add_no_detection_area_for_cyclo(cv2_image)
 
     
-    v = Visualizer(im[:, :, ::-1], metadata=metadata, scale=1)
+    v = Visualizer(cv2_image[:, :, ::-1], metadata=metadata, scale=1)
     out = v.draw_instance_predictions(instances)
     if show_img:
         cv2.imshow('Prediction', out.get_image()[:, :, ::-1])

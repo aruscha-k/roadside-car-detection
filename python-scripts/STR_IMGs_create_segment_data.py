@@ -351,7 +351,7 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, cyclo_segment_db_table,
 
         cursor = con.cursor()
         if suburb_list == []:
-             # get ortsteile and their number codes
+            # get ortsteile
             cursor.execute("""SELECT ot_name FROM ortsteile""")
             suburb_list = [item[0] for item in cursor.fetchall()]
         

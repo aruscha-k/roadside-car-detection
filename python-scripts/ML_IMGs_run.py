@@ -31,15 +31,11 @@ def add_image_to_list(img_folder, img_file, img_position_information, img_path_a
         list: list with or without the checked image file
     """
     if os.path.exists(os.path.join(img_folder, img_file)):
-        if img_type == "air":
-            img_path_and_position_list.append((img_file, img_position_information))
-        elif img_type == "cyclo":
-            img_path_and_position_list.append((os.path.join(img_folder, img_file), img_position_information))
-        return img_path_and_position_list
+        img_path_and_position_list.append((img_file, img_position_information))
     else:
         print("[!!] invalid path", img_folder + img_file)
         log(execution_file = execution_file, img_type=img_type, logstart=log_start, logtime=datetime.now(), message= f"no file found for segment_id {segment_id}")
-        return img_path_and_position_list
+    return img_path_and_position_list
 
 
 def run(db_config, db_user, suburb_list, img_type, result_table_name):
@@ -117,7 +113,7 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
                             continue
 
 
-                        img_path_and_position_list = []
+                        img_filename_and_position_list = []
                         if img_type == "cyclo":
                             
                             cursor.execute("""SELECT recording_id, recording_lat, recording_lon FROM segments_cyclomedia_newmethod WHERE segment_id = %s AND segmentation_number = %s""", (segment_id, segmentation_number, ))
@@ -133,8 +129,7 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
                                     segmentation_no_string = str(segmentation_number)
             
                                 img_file_name = str(segment_id)+ "_" + segmentation_no_string +  "_" + str(recording_id) + ".jpg"
-                                img_folder = CYCLO_IMG_FOLDER_PATH + ot_name + "/"
-                                img_path_and_position_list = add_image_to_list(img_folder = img_folder, img_file = img_file_name, img_position_information = (recording_lat, recording_lon), img_path_and_position_list = img_path_and_position_list, img_type=img_type, segment_id=segment_id)
+                                img_filename_and_position_list = add_image_to_list(img_folder = CYCLO_IMG_FOLDER_PATH, img_file = img_file_name, img_position_information = (recording_lat, recording_lon), img_path_and_position_list = img_filename_and_position_list, img_type=img_type, segment_id=segment_id)
            
 
                         iter_information = {}
@@ -147,15 +142,15 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
 
                             if img_type == "air":
                                 img_file_name = str(ot_name) + "_" +  str(segment_id)+ "_" + str(segmentation_number) + "_" + str(iteration_number) + ".tif"
-                                img_path_and_position_list = add_image_to_list(img_folder = AIR_CROPPED_ITERATION_FOLDER_PATH, img_file = img_file_name, img_position_information = iteration_poly, img_path_and_position_list = img_path_and_position_list, img_type=img_type, segment_id=segment_id)
+                                img_filename_and_position_list = add_image_to_list(img_folder = AIR_CROPPED_ITERATION_FOLDER_PATH, img_file = img_file_name, img_position_information = iteration_poly, img_path_and_position_list = img_filename_and_position_list, img_type=img_type, segment_id=segment_id)
 
                         # if no images were found for segment, skip parking detection
-                        if img_path_and_position_list == []:
+                        if img_filename_and_position_list == []:
                             print("No images for iteration")
                             log(execution_file = execution_file, img_type=img_type, logstart=log_start, logtime=datetime.now(), message=f"{segment_id}, {segmentation_number}: For segment_id and segmentation number there are no images to detect cars on.")
                             continue
                         
-                        parking_dict = run_detection(img_path_and_position_list, img_type, iter_information)
+                        parking_dict = run_detection(img_filename_and_position_list, ot_name, img_type, iter_information)
 
                         # write to DB # parking_dict = {iteration_number: {'left': (parking, percentage), 'right': (parking, percentage)}}
                         for iteration_number, value in parking_dict.items():

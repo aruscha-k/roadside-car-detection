@@ -17,7 +17,7 @@ global_base_url_panorama = 'https://atlas.cyclomedia.com/PanoramaRendering/'
 # for getting metadata
 global_base_url_atlas = 'https://atlas.cyclomedia.com/recording/wfs?service=WFS&version=1.1.0&request=GetFeature'
 
-
+#TODO: obsolete?
 def list_nearest_recordings(srs, lat, lon, params, print_url):
     """ API request to get a list of nearest locations for a specific GPS coordinate, the output list is ordered according to the distance to the given address location
         example URL: https://atlas.cyclomedia.com/PanoramaRendering/ListByLocation2D/55567837/316822.5120000001/5688438.680999999?apiKey=2_4lO_8ZuXEBuXY5m7oVWzE1KX41mvcd-PQZ2vElan85eLY9CPsdCLstCvYRWrQ5
@@ -231,6 +231,7 @@ def get_recording_id(recordings_response, index):
     return first_rec_id, rec_date
 
 
+#TODO: obsolete?
 def get_viewing_direction(srs_name, recording_id):
     """ for a specific recording ID this Call returns the metadata including the viewing direction from the WFS Service of cyclomedia
 
