@@ -275,4 +275,4 @@ def run(db_config, db_user, suburb_list, img_type, parking_cyclo_table, parking_
 
 if __name__ == "__main__":
     db_config = os.path.join(RES_FOLDER_PATH, DB_CONFIG_FILE_NAME)
-    run(db_config, DB_USER, ["Südvorstadt"], img_type="", parking_cyclo_table="parking_cyclo_newmethod", parking_air_table="parking_air")
+    run(db_config, DB_USER, ["Südvorstadt"], img_type="", parking_cyclo_table="parking_cyclomedia_newmethod", parking_air_table="parking_air")
