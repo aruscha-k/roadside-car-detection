@@ -136,16 +136,15 @@ def add_no_detection_area_for_cyclo(im):
     im_width = im.shape[1]
     im_height = im.shape[0]
     
-    midpoint = (int(im_width/2),int(im_height/2)+50)
-    # upper image area
-    #upper_points = np.array([[(0,0), (0,midpoint[1]) ,(im_width, midpoint[1]), (im_width, 0)]])
-    #im = cv2.fillPoly(im, pts=[upper_points], color=(0, 0, 0))
+    mid_line = (int(im_width/2), int(im_height/2)-50)
+    mid_line_y = mid_line[1]
+    mid_line_x = mid_line[0]
+    mid_point = (mid_line_x, int(im_height))
     
-    midpoint = (int(im_width/2),int(im_height/2)-50)
     # car sight area
-    car_left = (int(im_width/3)-50,im_height)
-    car_right = ((2*int(im_width/3)+50),im_height)
-    points = np.array([[car_left, midpoint, car_right]])
+    left = (int(im_width/3)-50, mid_line_y)
+    right = ((2*int(im_width/3)+50), mid_line_y)
+    points = np.array([[left, mid_point, right]])
     im = cv2.fillPoly(im, pts=[points], color=(0, 0, 0))
     return im
 
@@ -353,15 +352,12 @@ def assign_predictions_to_side_and_iteration(side, predicted_classes_for_side, p
 # visualize prediction for 1 image
 def visualize_and_save_prediction_img(cv2_image, instances, img_type, show_img, save_img, pred_img_filepath):
     
-    #im = cv2.imread(filename)
     if img_type == "air":
         metadata = {"thing_classes": ['p', 'd/s']}
        
     elif img_type == "cyclo":
         metadata = {"thing_classes": ['parallel', 'diagonal/senkrecht']}
-        cv2_image = add_no_detection_area_for_cyclo(cv2_image)
 
-    
     v = Visualizer(cv2_image[:, :, ::-1], metadata=metadata, scale=1)
     out = v.draw_instance_predictions(instances)
     if show_img:
