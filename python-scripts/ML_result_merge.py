@@ -39,7 +39,7 @@ def populate_db_result_dict(db_results, img_type, result_dict):
     return result_dict
 
 
-def fetch_parking_results_per_segment(cursor, segment_id:int, img_type):
+def fetch_parking_results_per_segment(cursor, segment_id:int, img_type, parking_cyclo_table, parking_air_table):
     """ HELPER method to fetch ML results for each iteration within one segment
 
     Args:
@@ -55,12 +55,14 @@ def fetch_parking_results_per_segment(cursor, segment_id:int, img_type):
     result_dict = dict()
 
     if img_type == "" or img_type == "cyclo":
-        cursor.execute("""SELECT segmentation_number, iteration_number, parking_side, value, percentage FROM parking_cyclomedia WHERE segment_id = %s ORDER BY segmentation_number ASC""", (segment_id, ))
+        cursor.execute("""SELECT segmentation_number, iteration_number, parking_side, value, percentage FROM {} WHERE segment_id = %s ORDER BY segmentation_number ASC""".format(parking_cyclo_table), (segment_id, ))
         cyclo = cursor.fetchall()
+        #print("cyclo result:", cyclo)
 
     if img_type == "" or img_type == "air":
-        cursor.execute("""SELECT segmentation_number, iteration_number, parking_side, value, percentage FROM parking_air WHERE segment_id = %s ORDER BY segmentation_number ASC""", (segment_id, ))
+        cursor.execute("""SELECT segmentation_number, iteration_number, parking_side, value, percentage FROM {} WHERE segment_id = %s ORDER BY segmentation_number ASC""".format(parking_air_table), (segment_id, ))
         air = cursor.fetchall()
+        #print("air result ", air)
 
     # check that both tables have the same number of entries for all iterations
     if len(air) != len(cyclo):
@@ -231,7 +233,7 @@ def compare_iteration_values(db_con, segment_id, segmentation_number, segmentati
 
 
 
-def run(db_config, db_user, suburb_list, img_type):
+def run(db_config, db_user, suburb_list, img_type, parking_cyclo_table, parking_air_table):
     """ Method to merge parking results from cyclomedia and air images for a specific suburb (list):
         iterate all suburbs -> get all segment ids per suburb -> 
 
@@ -258,7 +260,7 @@ def run(db_config, db_user, suburb_list, img_type):
             for idx, segment_id in enumerate(segment_ids):
                 print("----segment id: ",segment_id, " - Number", idx+1, "of ", len(segment_ids))
 
-                segment_parking_results = fetch_parking_results_per_segment(cursor, segment_id, img_type=img_type)
+                segment_parking_results = fetch_parking_results_per_segment(cursor, segment_id, img_type, parking_cyclo_table, parking_air_table)
                 
                 if segment_parking_results != {}:
 
@@ -273,4 +275,4 @@ def run(db_config, db_user, suburb_list, img_type):
 
 if __name__ == "__main__":
     db_config = os.path.join(RES_FOLDER_PATH, DB_CONFIG_FILE_NAME)
-    run(db_config, DB_USER, ["Südvorstadt"], img_type="")
+    run(db_config, DB_USER, ["Südvorstadt"], img_type="", parking_cyclo_table="parking_cyclo_newmethod", parking_air_table="parking_air")

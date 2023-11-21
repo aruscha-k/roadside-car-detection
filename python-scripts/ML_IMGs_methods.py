@@ -11,7 +11,7 @@ from detectron2.utils.visualizer import Visualizer
 
 from PATH_CONFIGS import RES_FOLDER_PATH, CYCLO_DETECTION_MODEL, AIR_DETECTION_MODEL, CYCLO_IMG_FOLDER_PATH, AIR_CROPPED_ROTATED_FOLDER_PATH, AIR_CROPPED_ITERATION_FOLDER_PATH, DEMO_AIR_DETECTION_FOLDER_PATH, DEMO_CYCLO_DETECTION_FOLDER_PATH
 from helpers_coordiantes import is_point_within_polygon
-from AIR_IMGs_process import transform_geotif_to_north, transform_coordinates_to_pixel, transform_points, is_car_within_polygon
+from AIR_IMGs_process import transform_geotif_to_north
 
 
 # JONAS trained net
