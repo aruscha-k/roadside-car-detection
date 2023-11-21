@@ -129,7 +129,8 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
                                     segmentation_no_string = str(segmentation_number)
             
                                 img_file_name = str(segment_id)+ "_" + segmentation_no_string +  "_" + str(recording_id) + ".jpg"
-                                img_filename_and_position_list = add_image_to_list(img_folder = CYCLO_IMG_FOLDER_PATH, img_file = img_file_name, img_position_information = (recording_lat, recording_lon), img_path_and_position_list = img_filename_and_position_list, img_type=img_type, segment_id=segment_id)
+                                img_folder = os.path.join(CYCLO_IMG_FOLDER_PATH, ot_name + "/")
+                                img_filename_and_position_list = add_image_to_list(img_folder = img_folder, img_file = img_file_name, img_position_information = (recording_lat, recording_lon), img_path_and_position_list = img_filename_and_position_list, img_type=img_type, segment_id=segment_id)
            
 
                         iter_information = {}
@@ -170,7 +171,7 @@ if __name__ == "__main__":
 
     db_config_path = os.path.join(RES_FOLDER_PATH, DB_CONFIG_FILE_NAME)
     run(db_config_path, DB_USER, ['Südvorstadt'], img_type="cyclo", result_table_name="parking_cyclomedia_newmethod")
-    # run(db_config_path, DB_USER, ['Südvorstadt'], img_type="air", result_table_name="parking_air")
+    run(db_config_path, DB_USER, ['Südvorstadt'], img_type="air", result_table_name="parking_air")
 
 
 #https://atlas.cyclomedia.com/PanoramaRendering/Render/WE4IK5SE/?apiKey=2_4lO_8ZuXEBuXY5m7oVWzE1KX41mvcd-PQZ2vElan85eLY9CPsdCLstCvYRWrQ5&srsName=epsg:55567837&direction=0&hfov=80
