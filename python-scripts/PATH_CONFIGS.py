@@ -5,7 +5,7 @@ LOAD_DATA_CONFIG_NAME = "load_data_config.json"
 
 CYCLO_DETECTION_MODEL = "train2_streetmodel_150img_00025lr_1500bs.pth"
 #AIR_DETECTION_MODEL = "parking_air3_LR00012_Maxiter5000_BS1500_totalloss01728.pth"
-AIR_DETECTION_MODEL = "parking_air_LR00023_Maxiter20000_BS3500_totalloss02099.pth"
+AIR_DETECTION_MODEL = "parking_air30_LR00015_maxiter2000_BS1500_totalloss0111.pth"
 
 RES_FOLDER_PATH = "./add-files"
 

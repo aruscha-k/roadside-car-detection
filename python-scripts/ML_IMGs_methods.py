@@ -14,20 +14,6 @@ from helpers_coordiantes import is_point_within_polygon
 from AIR_IMGs_process import transform_geotif_to_north
 
 
-# JONAS trained net
-# def load_air_predictor():
-    # air_cfg = get_cfg()
-    # if not torch.cuda.is_available():
-    #     print('not using gpu acceleration')
-    #     air_cfg.MODEL.DEVICE = 'cpu'
-    # air_cfg.merge_from_file(model_zoo.get_config_file("COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml"))
-    # air_cfg.MODEL.WEIGHTS = os.path.join(RES_FOLDER_PATH, AIR_DETECTION_MODEL)
-    # air_cfg.MODEL.ROI_HEADS.NUM_CLASSES = 5
-    # air_cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.90
-    # predictor = DefaultPredictor(air_cfg)
-    # return predictor
-
-
 # July 23 trained net
 def load_air_predictor():
     air_cfg = get_cfg()
@@ -41,6 +27,19 @@ def load_air_predictor():
     predictor = DefaultPredictor(air_cfg)
     return predictor
 
+# Nov trained net with 3 classes: {'parallel': 0, 'senkrecht': 1, 'diagonal': 2}
+def load_air_predictor():
+    air_cfg = get_cfg()
+    if not torch.cuda.is_available():
+        print('not using gpu acceleration')
+        air_cfg.MODEL.DEVICE = 'cpu'
+    air_cfg.merge_from_file(model_zoo.get_config_file("COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml"))
+    air_cfg.MODEL.WEIGHTS = os.path.join(RES_FOLDER_PATH, AIR_DETECTION_MODEL)
+    air_cfg.MODEL.ROI_HEADS.NUM_CLASSES = 3
+    air_cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.90
+    predictor = DefaultPredictor(air_cfg)
+    return predictor
+
 
 def load_cyclo_predictor():
     cfg = get_cfg()
@@ -48,16 +47,16 @@ def load_cyclo_predictor():
     cfg.DATASETS.TRAIN = ("test_set",)
     cfg.DATASETS.TEST = ()
     cfg.DATALOADER.NUM_WORKERS = 2
-    cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml")  # Let training initialize from model zoo
+    cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml")  #
     cfg.SOLVER.IMS_PER_BATCH = 2
-    cfg.SOLVER.BASE_LR = 0.0025  # pick a good LR
-    cfg.SOLVER.MAX_ITER = 1500    # 300 iterations seems good enough for this toy dataset; you will need to train longer for a practical dataset
-    cfg.SOLVER.STEPS = []        # do not decay learning rate
-    cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 1500   # faster, and good enough for this toy dataset (default: 512)
+    cfg.SOLVER.BASE_LR = 0.0025  #
+    cfg.SOLVER.MAX_ITER = 1500    
+    cfg.SOLVER.STEPS = []      
+    cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 1500  
     cfg.MODEL.ROI_HEADS.NUM_CLASSES = 2 
     cfg.MODEL.DEVICE = 'cpu'
-    cfg.MODEL.WEIGHTS = os.path.join(RES_FOLDER_PATH, CYCLO_DETECTION_MODEL)  # path to the model we just trained
-    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.90   # set a custom testing threshold
+    cfg.MODEL.WEIGHTS = os.path.join(RES_FOLDER_PATH, CYCLO_DETECTION_MODEL)  #
+    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.90   
     predictor = DefaultPredictor(cfg)
     return predictor
 
@@ -193,7 +192,7 @@ def calculate_parking(predictions, img_type):
     if img_type == "cyclo":
         class_dict = {0: 'parallel', 1: 'diagonal/senkrecht', -1: 'kein Auto'}
     elif img_type == "air":
-        class_dict = {0: 'parallel', 1: 'diagonal/senkrecht', -1: 'kein Auto'}
+        class_dict = {0: 'parallel', 1: 'senkrecht', 2: 'diagonal', -1: 'kein Auto'}
 
     for iteration_number in predictions.keys():
         # print(predictions[iteration_number])
@@ -353,7 +352,8 @@ def assign_predictions_to_side_and_iteration(side, predicted_classes_for_side, p
 def visualize_and_save_prediction_img(cv2_image, instances, img_type, show_img, save_img, pred_img_filepath):
     
     if img_type == "air":
-        metadata = {"thing_classes": ['p', 'd/s']}
+        #metadata = {"thing_classes": ['p', 'd/s']}
+        metadata = {"thing_classes": ['p', 's', 'd']}
        
     elif img_type == "cyclo":
         metadata = {"thing_classes": ['parallel', 'diagonal/senkrecht']}

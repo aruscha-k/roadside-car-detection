@@ -118,10 +118,11 @@ def compare_iteration_result_per_image_type(results_per_side):
                 air_parking_percentage = dict_item.get("air")[1]
                 air_parking_value, air_parking_percentage = apply_weights(air_parking_value, air_parking_percentage)
 
-        # if both have same parking_value
-        if cyclo_parking_value == air_parking_value:
+        # if both have same parking_value; air has seperate values for senkrecht/diagonal => more precise
+        if air_parking_value in cyclo_parking_value:
+        # if cyclo_parking_value == air_parking_value:
             avg_percentage = (cyclo_parking_percentage + air_parking_percentage)/2
-            return cyclo_parking_value, avg_percentage
+            return air_parking_value, avg_percentage
         else:
             # if cyclo has higher percentage
             if cyclo_parking_percentage > air_parking_percentage:
