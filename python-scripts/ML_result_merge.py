@@ -6,6 +6,12 @@ import psycopg2
 import os
 
 
+global parking_segment_result_table
+global parking_iteration_result_table
+global parking_cyclo_fetch_table
+global parking_air_fetch_table
+
+
 def populate_db_result_dict(db_results, img_type, result_dict):
     """ HELPER method to create the parking result dict for both DB calls (cyclo and air); is beeing appended from empty to air DB call to cyclo DB call
 
@@ -39,7 +45,7 @@ def populate_db_result_dict(db_results, img_type, result_dict):
     return result_dict
 
 
-def fetch_parking_results_per_segment(cursor, segment_id:int, img_type, parking_cyclo_table, parking_air_table):
+def fetch_parking_results_per_segment(cursor, segment_id:int, img_type: str):
     """ HELPER method to fetch ML results for each iteration within one segment
 
     Args:
@@ -55,12 +61,12 @@ def fetch_parking_results_per_segment(cursor, segment_id:int, img_type, parking_
     result_dict = dict()
 
     if img_type == "" or img_type == "cyclo":
-        cursor.execute("""SELECT segmentation_number, iteration_number, parking_side, value, percentage FROM {} WHERE segment_id = %s ORDER BY segmentation_number ASC""".format(parking_cyclo_table), (segment_id, ))
+        cursor.execute("""SELECT segmentation_number, iteration_number, parking_side, value, percentage FROM {} WHERE segment_id = %s ORDER BY segmentation_number ASC""".format(parking_cyclo_fetch_table), (segment_id, ))
         cyclo = cursor.fetchall()
         #print("cyclo result:", cyclo)
 
     if img_type == "" or img_type == "air":
-        cursor.execute("""SELECT segmentation_number, iteration_number, parking_side, value, percentage FROM {} WHERE segment_id = %s ORDER BY segmentation_number ASC""".format(parking_air_table), (segment_id, ))
+        cursor.execute("""SELECT segmentation_number, iteration_number, parking_side, value, percentage FROM {} WHERE segment_id = %s ORDER BY segmentation_number ASC""".format(parking_air_fetch_table), (segment_id, ))
         air = cursor.fetchall()
         #print("air result ", air)
 
@@ -163,12 +169,12 @@ def calculate_average_percentage(result_list, parking_value):
 
 def write_parking_result_to_DB(con, segment_id, segmentation_number, iteration_number, parking_side, parking_value, parking_percentage):
     cursor = con.cursor()
-    #write segmentation to DB, because no iteration number was specified
     try:
+        # write segmentation to DB, if no iteration number was specified
         if iteration_number == "":
-            cursor.execute("""INSERT INTO parking_segment VALUES (%s, %s, %s, %s, %s)""", (segment_id, segmentation_number, parking_side, parking_value, parking_percentage, ))
-        else: #write iteration number to DB
-            cursor.execute("""INSERT INTO parking_iteration VALUES (%s, %s, %s, %s, %s, %s)""", (segment_id, segmentation_number, iteration_number, parking_side, parking_value, parking_percentage, ))
+            cursor.execute("""INSERT INTO {} VALUES (%s, %s, %s, %s, %s)""".format(parking_segment_result_table), (segment_id, segmentation_number, parking_side, parking_value, parking_percentage, ))
+        else: #write iteration result to DB
+            cursor.execute("""INSERT INTO {} VALUES (%s, %s, %s, %s, %s, %s)""".format(parking_iteration_result_table), (segment_id, segmentation_number, iteration_number, parking_side, parking_value, parking_percentage, ))
         
     except psycopg2.errors.UniqueViolation:
         con.rollback()
@@ -203,11 +209,11 @@ def compare_iteration_values(db_con, segment_id, segmentation_number, segmentati
     counter = Counter([item[0] for item in iteration_comparison_results])
     most_common_parking_value, most_common_count = counter.most_common(1)[0]# show the most common item (1) (=tuple) and choose it ([0])
     next_most_common_count = counter.most_common(2)[1][1] if len(counter) > 1 else 0
-    has_duplicates = most_common_count == next_most_common_count
+    has_duplicates = most_common_count == next_most_common_count #if two items with same probability
 
     if not has_duplicates:
         avg_percentage = calculate_average_percentage(iteration_comparison_results, most_common_parking_value)
-        return most_common_parking_value, avg_percentage
+        write_parking_result_to_DB(db_con, segment_id, segmentation_number, iteration_number="", parking_side=parking_side, parking_value=most_common_parking_value, parking_percentage=avg_percentage)
     else:
         # if there are parking values with the same number of counts, choose the one with the biggest percentage:
         # to do so get the values from result list and calculate the average percentage of the duplicate items, choose the item with the highest percentage
@@ -234,7 +240,7 @@ def compare_iteration_values(db_con, segment_id, segmentation_number, segmentati
 
 
 
-def run(db_config, db_user, suburb_list, img_type, parking_cyclo_table, parking_air_table):
+def run(db_config, db_user, suburb_list, img_type):
     """ Method to merge parking results from cyclomedia and air images for a specific suburb (list):
         iterate all suburbs -> get all segment ids per suburb -> 
 
@@ -261,7 +267,7 @@ def run(db_config, db_user, suburb_list, img_type, parking_cyclo_table, parking_
             for idx, segment_id in enumerate(segment_ids):
                 print("----segment id: ",segment_id, " - Number", idx+1, "of ", len(segment_ids))
 
-                segment_parking_results = fetch_parking_results_per_segment(cursor, segment_id, img_type, parking_cyclo_table, parking_air_table)
+                segment_parking_results = fetch_parking_results_per_segment(cursor, segment_id, img_type)
                 
                 if segment_parking_results != {}:
 
@@ -275,5 +281,11 @@ def run(db_config, db_user, suburb_list, img_type, parking_cyclo_table, parking_
 
 
 if __name__ == "__main__":
+    
+    parking_air_fetch_table = 'parking_air'
+    parking_cyclo_fetch_table = 'parking_cyclomedia_newmethod'
+    parking_segment_result_table = 'parking_segment_air'
+    parking_iteration_result_table = 'parking_iteration_air'
+
     db_config = os.path.join(RES_FOLDER_PATH, DB_CONFIG_FILE_NAME)
-    run(db_config, DB_USER, ["Südvorstadt"], img_type="", parking_cyclo_table="parking_cyclomedia_newmethod", parking_air_table="parking_air")
+    run(db_config, DB_USER, ['Südvorstadt'], img_type="air")
