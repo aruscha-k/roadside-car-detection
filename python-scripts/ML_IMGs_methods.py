@@ -148,6 +148,30 @@ def add_no_detection_area_for_cyclo(im):
     return im
 
 
+def add_no_detection_area_for_air(im):
+
+    percentage = 0.18
+    
+    im_width = im.shape[1]
+    im_height = im.shape[0]
+    midpoint_x = int(im_width/2)
+
+    left_boundary_x = int((midpoint_x+10) - percentage * (im_width/2))
+    right_boundary_x = int((midpoint_x-10) + percentage * (im_width/2))
+
+    poly = [[left_boundary_x, im_height], [left_boundary_x, 0], [right_boundary_x, 0], [right_boundary_x, im_height]]
+    #bbox_centers = instances.pred_boxes.get_centers().cpu().numpy()
+    #outliers = [pt for pt in bbox_centers if is_point_within_polygon(pt, poly)]
+    
+    polygon_vertices = np.array([poly], dtype=np.int32)
+    cv2.fillPoly(im, pts=polygon_vertices, color=(0, 0, 0))
+
+    return im
+
+
+
+
+
 def assign_left_right(im, boxes, classes):
     """ function uses the midpoint of image (x axis) and assign bboxes to left or right side depending on their positions in regard to the midpoint
 
@@ -190,18 +214,22 @@ def calculate_parking(predictions, img_type):
     parking_dict = dict()
 
     if img_type == "cyclo":
-        class_dict = {0: 'parallel', 1: 'diagonal/senkrecht', -1: 'kein Auto'}
+        class_dict = {0: 'parallel', 1: 'diagonal/senkrecht', -1: 'kein Auto', -2: 'no image'}
     elif img_type == "air":
-        class_dict = {0: 'parallel', 1: 'senkrecht', 2: 'diagonal', -1: 'kein Auto'}
+        class_dict = {0: 'parallel', 1: 'senkrecht', 2: 'diagonal', -1: 'kein Auto', -2: 'no image'}
 
     for iteration_number in predictions.keys():
         # print(predictions[iteration_number])
         parking_dict[iteration_number] = {}
 
-        # if no predictions were found in an iteration
-        if len(predictions[iteration_number]) == 0:
+        if len(predictions[iteration_number]) == 0: # if no predictions were found in an iteration, choose class no car
             parking_dict[iteration_number]['left'] = (class_dict[-1], 100.00)
             parking_dict[iteration_number]['right'] = (class_dict[-1], 100.00)
+            continue
+
+        if predictions[iteration_number]['left'] == [-2]: # if on one of the sides is "error code" its on both sides
+            parking_dict[iteration_number]['left'] = (class_dict[-2], 0)
+            parking_dict[iteration_number]['right'] = (class_dict[-2], 0)
             continue
 
         # METHOD TO ADD ONLY THE BEST DETECTION PERCENTAGE
@@ -222,7 +250,7 @@ def calculate_parking(predictions, img_type):
     return parking_dict
 
 
-def run_detection(img_filename_and_position_list, ot_name, img_type, iter_information_dict):
+def run_detection(img_filename_and_position_list, ot_name, img_type, iter_information_dict, filter_unparked_cars):
     """ run method: for one street segment, use all images to detect parking situation on
 
     Args:
@@ -241,82 +269,86 @@ def run_detection(img_filename_and_position_list, ot_name, img_type, iter_inform
         predictor = load_cyclo_predictor()
     else:
         print("[!] invalid img type - cannot load predictor")
-
-    predictions = dict()
-        
+    
+    predictions = dict()    
     # go through each iteration
     for idx, (iteration_number, iteration_poly) in enumerate(iter_information_dict.items()):
         #print("iter number and poly", iteration_number, iteration_poly)
         predictions[iteration_number] = {}
         
         if img_type == "cyclo":
-            left, right = [], []
-            # find the recordings that lie within the iteration box
+            # find all recordings of the segment, that lie within the current iteration box
             iteration_record_id_list = [img_filename for img_filename, (recording_lat, recording_lon) in img_filename_and_position_list if is_point_within_polygon((recording_lat, recording_lon), iteration_poly)]
+            iteration_record_id_list = list(set(iteration_record_id_list)) #TODO CHECK FOR DUPLICATES
+            
+            if iteration_record_id_list == []: #if there is no image add -2 for both sides
+                predictions[iteration_number] = {"left": [-2], "right": [-2]}
+                continue
+            else:
+                # for each image make predictions, assign left and right side and save (bounding box, class) to each left and right
+                for img_filename in iteration_record_id_list:
+                    folder_path = os.path.join(CYCLO_IMG_FOLDER_PATH, ot_name + "/")
+                    img = cv2.imread(os.path.join(folder_path, img_filename))
+                    if img is not None:
+                        if filter_unparked_cars:
+                            img = add_no_detection_area_for_cyclo(img)
+                        outputs = predictor(img)
+                        instances = outputs["instances"].to("cpu")
+                        bboxes = instances.pred_boxes.tensor.cpu().numpy()
+                        classes = instances.pred_classes.cpu().numpy()
+                        im_left, im_right = assign_left_right(img, bboxes, classes) #list of tuples (box, class)
+                        #print("im left: ", im_left, "im_right", im_right)
+                        predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = 'left', predicted_classes_for_side = [item[1] for item in im_left],  predictions = predictions[iteration_number])
+                        predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = 'right', predicted_classes_for_side = [item[1] for item in im_right], predictions = predictions[iteration_number])
 
-            # for each image make predictions, assign left and right side and save (bounding box, class) to each left and right
-            for img_filename in iteration_record_id_list:
-                folder_path = os.path.join(CYCLO_IMG_FOLDER_PATH, ot_name + "/")
-                img = cv2.imread(os.path.join(folder_path, img_filename))
-                if img is not None:
-                    img = add_no_detection_area_for_cyclo(img)
-                    outputs = predictor(img)
-                    instances = outputs["instances"].to("cpu")
-                    bboxes = instances.pred_boxes.tensor.cpu().numpy()
-                    classes = instances.pred_classes.cpu().numpy()
-                    im_left, im_right = assign_left_right(img, bboxes, classes) #list of tuples (box, class)
-                    predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = 'left', predicted_classes_for_side = [item[1] for item in im_left],  predictions = predictions[iteration_number])
-                    predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = 'right', predicted_classes_for_side = [item[1] for item in im_right], predictions = predictions[iteration_number])
-
-                    demo_img_folder = os.path.join(DEMO_CYCLO_DETECTION_FOLDER_PATH, ot_name + "/")
-                    
-                    if not os.path.exists(demo_img_folder):
-                        os.mkdir(demo_img_folder)
-                    visualize_and_save_prediction_img(img, instances, "cyclo", show_img = False, save_img = True, pred_img_filepath = demo_img_folder + img_filename) #for scads demo, save the image file with predictions
-
+                        demo_img_folder = os.path.join(DEMO_CYCLO_DETECTION_FOLDER_PATH, ot_name + "/")
+                        if not os.path.exists(demo_img_folder):
+                            os.mkdir(demo_img_folder)
+                        visualize_and_save_prediction_img(img, instances, "cyclo", show_img = False, save_img = True, pred_img_filepath = demo_img_folder + img_filename) #for scads demo, save the image file with predictions
+                #print("predictions", predictions)
         if img_type == "air":
             img_file_name = img_filename_and_position_list[idx][0]
-            img_file_name = img_file_name[:-4]
-            bbox = img_filename_and_position_list[idx][1]
-            
-            transform_matrix, tiff_matrix, out_img_path = transform_air_img(img_file_name, bbox, out_file_type=".tif")
-            cropped_rotated_img = cv2.imread(out_img_path)
-            if cropped_rotated_img is None:
-                print("[!] ERROR: CV2 could not open img file - RETURN empty dict")
-                #TODO LOG
-                return {}
-            outputs = predictor(cropped_rotated_img)
-            instances = outputs["instances"].to("cpu")
-            if len(instances) > 2:
-                instances = remove_unparked_cars_for_air(instances)
+            if img_file_name == "": #if there is no image add -2 for both sides
+                predictions[iteration_number] = {"left": [-2], "right": [-2]}
+                continue
+            else:
+                img_file_name = img_file_name[:-4]
+                bbox = img_filename_and_position_list[idx][1]
+                
+                transform_matrix, tiff_matrix, out_img_path = transform_air_img(img_file_name, bbox, out_file_type=".tif")
+                cropped_rotated_img = cv2.imread(out_img_path)
+                
+                if cropped_rotated_img is None:
+                    print("[!] ERROR: CV2 could not open img file - RETURN empty dict")
+                    #TODO LOG
+                    return {}
+                if filter_unparked_cars:
+                    cropped_rotated_img = add_no_detection_area_for_air(cropped_rotated_img)
+                outputs = predictor(cropped_rotated_img)
+                instances = outputs["instances"].to("cpu")
+        
+                # if filter_unparked_cars and (len(instances) > 3):
+                #     instances = remove_unparked_cars_for_air(instances)
+                    
 
-            bboxes = instances.pred_boxes.tensor.cpu().numpy()
-            classes = instances.pred_classes.cpu().numpy()
+                bboxes = instances.pred_boxes.tensor.cpu().numpy()
+                classes = instances.pred_classes.cpu().numpy()
 
-            demo_img_folder = os.path.join(DEMO_AIR_DETECTION_FOLDER_PATH, ot_name + "/")
-            if not os.path.exists(demo_img_folder):
-                os.mkdir(demo_img_folder)
-            visualize_and_save_prediction_img(cropped_rotated_img, instances, "air", show_img = False, save_img = True, pred_img_filepath = demo_img_folder + img_file_name + ".jpg") #for scads demo, save the image file with predictions
+                demo_img_folder = os.path.join(DEMO_AIR_DETECTION_FOLDER_PATH, ot_name + "/")
+                if not os.path.exists(demo_img_folder):
+                    os.mkdir(demo_img_folder)
+                
+                visualize_and_save_prediction_img(cropped_rotated_img, instances, "air", show_img = False, save_img = True, pred_img_filepath = demo_img_folder + img_file_name + ".jpg") #for scads demo, save the image file with predictions
+                #find_best_line_through_boxes(cropped_rotated_img, instances)
 
-            # if img_type == "air":
-            # px_bbox = transform_coordinates_to_pixel(iteration_poly, tiff_matrix)
-            # transformed_poly_points = transform_points(px_bbox, transform_matrix).astype(np.int32)
-            # transformed_poly_points = list(transformed_poly_points.reshape(4,2))
-
-            # assign all of the detected car boxes to a side
-            all_left, all_right = assign_left_right(cropped_rotated_img, bboxes, classes)
-      
-            #check which of the boxes lie within centerpoints lie within the current iteration window
-            # right = [(box, pred_class) for box, pred_class in all_right if is_car_within_polygon(box, transformed_poly_points)]
-            # left = [(box, pred_class) for box, pred_class in all_left if is_car_within_polygon(box, transformed_poly_points)]
-
-            #draw_assigned_classes_in_air_imgs(left, right, transformed_poly_points, out_img_path)
-
-            predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = "left", predicted_classes_for_side = [item[1] for item in all_left], predictions = predictions[iteration_number])
-            predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = "right", predicted_classes_for_side = [item[1] for item in all_right], predictions = predictions[iteration_number])
-                             
+                all_left, all_right = assign_left_right(cropped_rotated_img, bboxes, classes)
+                #draw_assigned_classes_in_air_imgs(left, right, transformed_poly_points, out_img_path)
+                predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = "left", predicted_classes_for_side = [item[1] for item in all_left], predictions = predictions[iteration_number])
+                predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = "right", predicted_classes_for_side = [item[1] for item in all_right], predictions = predictions[iteration_number])
+                                
     # for all predictions, calculate the parking
     parking_dict =  calculate_parking(predictions, img_type)
+    #print(parking_dict)
 
     return parking_dict
 

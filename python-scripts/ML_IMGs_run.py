@@ -22,7 +22,7 @@ def add_image_to_list(img_folder, img_file, img_position_information, img_path_a
     Args:
         img_folder (str): folder path to use for ML detection
         img_file (str): img name
-        img_position_information (list or tuple): bbox of segment poly (list for air) or recording lat /lon (tuple for cyclo)
+        img_position_information (!! list or tuple !!): bbox of segment poly (list for air) or recording lat /lon (tuple for cyclo)
         img_path_and_position_list (list): list to add image to if exists
         img_type (str): air or cyclo
         segment_id (int): segment ID 
@@ -34,6 +34,7 @@ def add_image_to_list(img_folder, img_file, img_position_information, img_path_a
         img_path_and_position_list.append((img_file, img_position_information))
     else:
         print("[!!] invalid path", img_folder + img_file)
+        img_path_and_position_list.append(("", (0,0)))
         log(execution_file = execution_file, img_type=img_type, logstart=log_start, logtime=datetime.now(), message= f"no file found for segment_id {segment_id}")
     return img_path_and_position_list
 
@@ -145,13 +146,8 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
                                 img_file_name = str(ot_name) + "_" +  str(segment_id)+ "_" + str(segmentation_number) + "_" + str(iteration_number) + ".tif"
                                 img_filename_and_position_list = add_image_to_list(img_folder = AIR_CROPPED_ITERATION_FOLDER_PATH, img_file = img_file_name, img_position_information = iteration_poly, img_path_and_position_list = img_filename_and_position_list, img_type=img_type, segment_id=segment_id)
 
-                        # if no images were found for segment, skip parking detection
-                        if (img_filename_and_position_list == []) or (len(img_filename_and_position_list) != len(iter_information)):
-                            print("No images for iteration // Wrong iter - information")
-                            log(execution_file = execution_file, img_type=img_type, logstart=log_start, logtime=datetime.now(), message=f"{segment_id}, {segmentation_number}: For segment_id and segmentation number there are no images to do ML detection or wrong iter information.")
-                            continue
-                        
-                        parking_dict = run_detection(img_filename_and_position_list, ot_name, img_type, iter_information)
+                        #print(img_filename_and_position_list,"\n", iter_information)
+                        parking_dict = run_detection(img_filename_and_position_list, ot_name, img_type, iter_information, filter_unparked_cars=False)
 
                         # write to DB # parking_dict = {iteration_number: {'left': (parking, percentage), 'right': (parking, percentage)}}
                         for iteration_number, value in parking_dict.items():
@@ -170,8 +166,8 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
 if __name__ == "__main__":
 
     db_config_path = os.path.join(RES_FOLDER_PATH, DB_CONFIG_FILE_NAME)
-    # run(db_config_path, DB_USER, ['Südvorstadt'], img_type="cyclo", result_table_name="parking_cyclomedia_newmethod")
-    run(db_config_path, DB_USER, ['Südvorstadt'], img_type="air", result_table_name="parking_air")
+    run(db_config_path, DB_USER, ['Südvorstadt', 'Volkmarsdorf'], img_type="cyclo", result_table_name="parking_cyclo_nofilter")
+    #run(db_config_path, DB_USER, ['Südvorstadt', 'Volkmarsdorf'], img_type="air", result_table_name="parking_iteration_air_only_nofilter")
 
 
 #https://atlas.cyclomedia.com/PanoramaRendering/Render/WE4IK5SE/?apiKey=2_4lO_8ZuXEBuXY5m7oVWzE1KX41mvcd-PQZ2vElan85eLY9CPsdCLstCvYRWrQ5&srsName=epsg:55567837&direction=0&hfov=80
