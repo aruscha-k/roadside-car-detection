@@ -3,9 +3,9 @@ import os
 DB_CONFIG_FILE_NAME = "db_config.json"
 LOAD_DATA_CONFIG_NAME = "load_data_config.json"
 
-CYCLO_DETECTION_MODEL = "train2_streetmodel_150img_00025lr_1500bs.pth"
+CYCLO_DETECTION_MODEL = "models/train2_streetmodel_150img_00025lr_1500bs.pth"
 #AIR_DETECTION_MODEL = "parking_air3_LR00012_Maxiter5000_BS1500_totalloss01728.pth"
-AIR_DETECTION_MODEL = "parking_air30_LR00015_maxiter2000_BS1500_totalloss0111.pth"
+AIR_DETECTION_MODEL = "models/parking_air30_LR00015_maxiter2000_BS1500_totalloss0111.pth"
 
 RES_FOLDER_PATH = "./add-files"
 
