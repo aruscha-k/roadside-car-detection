@@ -141,7 +141,7 @@
         }
     },
     {
-        "name": "segments_segmentation_sides",
+        "name": "visualisation_segments_segmentation_sides",
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
             {"name": "segmentation_number", "type": "int"},
@@ -155,6 +155,20 @@
     },
     {
         "name": "segments_segmentation_iteration",
+        "columns": [
+            {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "segmentation_number", "type": "int"},
+            {"name": "iteration_number", "type": "int"},
+            {"name": "left_coordinates", "type": "jsonb"},
+            {"name": "right_coordinates", "type": "jsonb"}
+        ],
+        "constraints":{
+            "primaryKey": ["segment_id", "segmentation_number", "iteration_number"],
+            "not null": ["segment_id", "segmentation_number", "iteration_number"]
+        }
+    },
+    {
+        "name": "visualisation_segments_segmentation_iteration_sides",
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
             {"name": "segmentation_number", "type": "int"},
