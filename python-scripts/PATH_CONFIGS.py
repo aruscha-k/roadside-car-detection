@@ -31,13 +31,13 @@ CYCLO_IMG_FOLDER_PATH = IMG_FOLDER_PATH + "cyclomedia/"
 if not os.path.exists(CYCLO_IMG_FOLDER_PATH):
     os.mkdir(CYCLO_IMG_FOLDER_PATH)
 
-CYCLO_90_IMG_FOLDER_PATH = IMG_FOLDER_PATH + "cyclomedia90/"
-if not os.path.exists(CYCLO_90_IMG_FOLDER_PATH):
-    os.mkdir(CYCLO_90_IMG_FOLDER_PATH)
+CYCLO_LEFT_IMG_FOLDER_PATH = IMG_FOLDER_PATH + "cyclomedia-left/"
+if not os.path.exists(CYCLO_LEFT_IMG_FOLDER_PATH):
+    os.mkdir(CYCLO_LEFT_IMG_FOLDER_PATH)
 
-CYCLO_MINUS90_IMG_FOLDER_PATH = IMG_FOLDER_PATH + "cyclomedia-90/"
-if not os.path.exists(CYCLO_MINUS90_IMG_FOLDER_PATH):
-    os.mkdir(CYCLO_MINUS90_IMG_FOLDER_PATH)
+CYCLO_RIGHT_IMG_FOLDER_PATH = IMG_FOLDER_PATH + "cyclomedia-right/"
+if not os.path.exists(CYCLO_RIGHT_IMG_FOLDER_PATH):
+    os.mkdir(CYCLO_RIGHT_IMG_FOLDER_PATH)
 
 # --- air ---
 
