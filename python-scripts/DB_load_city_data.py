@@ -129,8 +129,15 @@ def load_data(data_sets, mappings, db_config) -> None:
 
 # methodto call, if this file will be imported and run by another file.
 # in this case res_folder_path and load_data_config_name can be set. otherwise the standart files will be used
-def main(res_folder_path:str=None, load_data_config_name:str=None, data_set_path:str=None) -> None:
-    # global RES_FOLDER_PATH, LOAD_DATA_CONFIG_NAME, DATASET_FOLDER_PATH
+def run_read_city_data(res_folder_path:str=None, load_data_config_name:str=None, data_set_path:str=None) -> None:
+    global RES_FOLDER_PATH, LOAD_DATA_CONFIG_NAME, DATASET_FOLDER_PATH
+
+    if not res_folder_path:
+        res_folder_path = RES_FOLDER_PATH
+    if not load_data_config_name:
+        load_data_config_name = LOAD_DATA_CONFIG_NAME
+    if not data_set_path:
+        data_set_path = DATASET_FOLDER_PATH
 
     print('Start load_data...')
 
@@ -155,4 +162,5 @@ def main(res_folder_path:str=None, load_data_config_name:str=None, data_set_path
 
 if __name__ == "__main__":
 
-   main(RES_FOLDER_PATH, LOAD_DATA_CONFIG_NAME, DATASET_FOLDER_PATH)
+#    run_read_city_data(RES_FOLDER_PATH, LOAD_DATA_CONFIG_NAME, DATASET_FOLDER_PATH)
+    run_read_city_data()

@@ -40,7 +40,7 @@ def create_tables(connection, tables):
 
 # methodto call, if this file will be imported and run by another file.
 # in this case res_folder_path and config_file_name can be set. otherwise the standart files will be used
-def main(res_folder_path:str=None, config_file_name:str=None) -> None:
+def run_create_db_schema(res_folder_path:str=None, config_file_name:str=None) -> None:
     global RES_FOLDER_PATH, DB_CONFIG_FILE_NAME
 
     print('Start create_db_schema...')
@@ -62,7 +62,7 @@ def main(res_folder_path:str=None, config_file_name:str=None) -> None:
     print('create_db_schema Done')
 
 if __name__ == "__main__":
-    main()
+    run_create_db_schema()
 
 
 #DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;
