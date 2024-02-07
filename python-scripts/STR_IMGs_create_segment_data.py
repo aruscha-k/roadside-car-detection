@@ -80,7 +80,7 @@ def get_recordings_for_segment(bbox:list):
         return []
 
 
-def get_image_IDs_from_cyclomedia(segment_id: int, segmentation_number: int, rec_IDs: list, north_deviation_street: float, max_distance: int, folder_dir: str, debug_mode: bool):
+def get_image_IDs_from_cyclomedia(segment_id, segmentation_number, rec_IDs: list, north_deviation_street: float, max_distance: int, folder_dir: str, debug_mode: bool):
     print(f"[i] Getting image IDs and images from cyclo")
 
     print_url = True if debug_mode else False
@@ -114,9 +114,6 @@ def get_image_IDs_from_cyclomedia(segment_id: int, segmentation_number: int, rec
                 img_file_name = f"{segment_id}_{segmentation_number}_{item['recording_id']}.jpg"
                 img_path = os.path.join(folder_dir, img_file_name)
 
-                if not os.path.exists(folder_dir):
-                    os.makedirs(folder_dir)
-
                 with open(img_path, 'wb') as file:
                     file.write(response.content)
 
@@ -139,7 +136,7 @@ def get_image_IDs_from_cyclomedia(segment_id: int, segmentation_number: int, rec
 #  segment_id: the segment ID the information is for
 #  segmentation_number: the segmentation number of the segment
 #  connection: DB connection
-def load_into_db(rec_IDs:list, segment_id:int, segmentation_number:int, db_table:str, connection):
+def load_into_db(rec_IDs:list, segment_id, segmentation_number:int, db_table:str, connection):
     print("[i] Load to DB")
     cursor = connection.cursor()
     if check_for_only_error_values(rec_IDs):
@@ -196,8 +193,12 @@ def get_cyclomedia_data(db_config_path:str, db_user:str, suburb_list:list, cyclo
                 print("No data for suburb: ", ot_name, "Check spelling?")
                 return
             
-            for i, segment_id in enumerate(segment_id_list):
+            #save images per folder
+            img_folder_dir = CYCLO_IMG_FOLDER_PATH + ot_name + "/"
+            if not os.path.exists(img_folder_dir):
+                os.makedirs(img_folder_dir)
             
+            for i, segment_id in enumerate(segment_id_list):
                 print(f"------{i+1} of {len(segment_id_list)+1}, segment_ID: {segment_id}--------")
 
                 cursor.execute("""SELECT segmentation_number, start_lat, start_lon, end_lat, end_lon, width, quadrant FROM segments_segmentation WHERE segment_id = %s ORDER BY segmentation_number""", (segment_id, ))
@@ -262,7 +263,6 @@ def get_cyclomedia_data(db_config_path:str, db_user:str, suburb_list:list, cyclo
        
                         #rec_IDs = get_nearest_recordings_for_street_pts((start_lat, start_lon), (end_lat, end_lon), shift_length, slope_origin, quadrant, [])
                         recordings = get_recordings_for_segment(bbox) 
-                        img_folder_dir = CYCLO_IMG_FOLDER_PATH + ot_name + "/"
                         rec_IDs = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = recordings, north_deviation_street = north_deviation_street, max_distance = 9, folder_dir= img_folder_dir, debug_mode = debug_mode)
                         if not debug_mode:
                             load_into_db(rec_IDs=rec_IDs, segment_id = segment_id, segmentation_number=segmentation_number, db_table=cyclo_segment_db_table, connection=con)
@@ -285,7 +285,6 @@ def get_cyclomedia_data(db_config_path:str, db_user:str, suburb_list:list, cyclo
        
                             #rec_IDs = get_nearest_recordings_for_street_pts((start_lat, start_lon), (end_lat, end_lon), shift_length, slope_origin, quadrant, [])
                             recordings = get_recordings_for_segment(bbox) 
-                            img_folder_dir = CYCLO_IMG_FOLDER_PATH + ot_name + "/"
                             rec_IDs = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = recordings, north_deviation_street = north_deviation_street, max_distance = 9, folder_dir= img_folder_dir, debug_mode= debug_mode)
                             if not debug_mode:
                                 load_into_db(rec_IDs=rec_IDs, segment_id=segment_id, segmentation_number=segmentation_number, db_table=cyclo_segment_db_table, connection=con)

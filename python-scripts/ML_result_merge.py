@@ -3,13 +3,18 @@ from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, DB_USER
 from collections import Counter
 import psycopg2
 
-import os
-
 
 global parking_segment_result_table
+parking_segment_result_table = 'parking_segment'
+
 global parking_iteration_result_table
+parking_iteration_result_table = 'parking_iteration'
+
 global parking_cyclo_fetch_table
+parking_cyclo_fetch_table = 'parking_cyclo'
+
 global parking_air_fetch_table
+parking_air_fetch_table = 'parking_air'
 
 
 def populate_db_result_dict(db_results, img_type, result_dict):
@@ -39,7 +44,7 @@ def populate_db_result_dict(db_results, img_type, result_dict):
 
         if parking_side not in result_dict[segmentation_number][iteration_number]:
             result_dict[segmentation_number][iteration_number][parking_side] = []
-
+                                                                                # TODO img_type should be in the parking side once 
         result_dict[segmentation_number][iteration_number][parking_side].append({img_type: (parking_value, parking_percentage)})
 
     return result_dict
@@ -240,18 +245,22 @@ def compare_iteration_values(db_con, segment_id, segmentation_number, segmentati
 
 
 
-def run(db_config, db_user, suburb_list, img_type):
+def run_merge_ml_results(db_config_path:str, db_user:str, suburb_list:list, img_type:str):
     """ Method to merge parking results from cyclomedia and air images for a specific suburb (list):
         iterate all suburbs -> get all segment ids per suburb -> 
 
     Args:
-        db_config (str): path to DB information
+        db_config_path (str): path to DB information
         db_user (str): path to DB user to log in 
         suburb_list (list): of tuples with ot_name, ot_nr
 
     """
+    if not db_config_path:
+        db_config_path = f'{RES_FOLDER_PATH}/{DB_CONFIG_FILE_NAME}'
+    if not db_user:
+        db_user = DB_USER
      
-    with open_connection(db_config, db_user) as con:
+    with open_connection(db_config_path, db_user) as con:
         cursor = con.cursor()
 
         if suburb_list == []:
@@ -281,11 +290,5 @@ def run(db_config, db_user, suburb_list, img_type):
 
 
 if __name__ == "__main__":
-    
-    parking_air_fetch_table = 'parking_air'
-    parking_cyclo_fetch_table = 'parking_cyclomedia_newmethod'
-    parking_segment_result_table = 'parking_segment_air'
-    parking_iteration_result_table = 'parking_iteration_air'
-
-    db_config = os.path.join(RES_FOLDER_PATH, DB_CONFIG_FILE_NAME)
-    run(db_config, DB_USER, ['Südvorstadt'], img_type="air")
+    # img_type = "air" / "cyclo" / "" (for both)
+    run_merge_ml_results(None, None, suburb_list=['Südvorstadt', 'Volkmarsdorf'], img_type="")
