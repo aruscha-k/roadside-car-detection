@@ -1,12 +1,11 @@
 import ERROR_CODES as ec
-from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME
+from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, DB_USER, CYCLO_IMG_FOLDER_PATH
 from DB_helpers import open_connection
-from helpers_geometry import calculate_street_deviation_from_north, calculate_bounding_box
+from helpers_geometry import calculate_street_deviation_from_north, calculate_bounding_box, is_recording_direction_equal_street_direction
 from helpers_coordiantes import is_point_within_polygon
 from STR_IMGs_api_calls import render_by_ID, list_recordings_in_bbox
 from LOG import log
 import STR_IMGs_config as CONF
-import PATH_CONFIGS as PATHS
 
 import os
 import psycopg2
@@ -17,7 +16,7 @@ log_start = None
 execution_file = "STR_IMGs_create_segment_data"
 
 
-def check_for_only_error_values(rec_IDs):
+def check_for_only_error_values(rec_IDs:list):
     """helper-func: check if all entries in recording ID list are just errors, if yes return True
 
     Args:
@@ -33,7 +32,7 @@ def check_for_only_error_values(rec_IDs):
         return False
 
 
-def get_recordings_for_segment(bbox):
+def get_recordings_for_segment(bbox:list):
     # Determine lower and upper corner based on the calculations
     min_lat = min(bbox, key=lambda x: x[0])[0]
     max_lat = max(bbox, key=lambda x: x[0])[0]
@@ -79,32 +78,6 @@ def get_recordings_for_segment(bbox):
             return sorted_recordings
     else:
         return []
-
-
-def is_recording_direction_equal_street_direction(viewing_direction, street_north_deviation):
-    """calculate shortest_angular_distance between cyclomedia recording direction angle and street north deviation angle
-        if between specified range return True, else False
-
-    Args:
-        viewing_direction (float): viewing direction of cyclomedia car
-        street_north_deviation (float): street deviation from north 
-
-    Returns:
-        bool: True if they point "in the same direction", else false
-    """
-    # Calculate the absolute difference between the angles
-    abs_diff = abs(viewing_direction - street_north_deviation)
-    #print("viewing_direction: ", viewing_direction, street_north_deviation)
-    
-    # Check for wraparound
-    if abs_diff > 180:
-        abs_diff = 360 - abs_diff
-
-    if 0 <= abs_diff <= 30:
-        return True
-    else:
-        return False
-
 
 
 def get_image_IDs_from_cyclomedia(segment_id: int, segmentation_number: int, rec_IDs: list, north_deviation_street: float, max_distance: int, folder_dir: str, debug_mode: bool):
@@ -166,7 +139,7 @@ def get_image_IDs_from_cyclomedia(segment_id: int, segmentation_number: int, rec
 #  segment_id: the segment ID the information is for
 #  segmentation_number: the segmentation number of the segment
 #  connection: DB connection
-def load_into_db(rec_IDs, segment_id, segmentation_number, db_table, connection):
+def load_into_db(rec_IDs:list, segment_id:int, segmentation_number:int, db_table:str, connection):
     print("[i] Load to DB")
     cursor = connection.cursor()
     if check_for_only_error_values(rec_IDs):
@@ -195,12 +168,18 @@ def load_into_db(rec_IDs, segment_id, segmentation_number, db_table, connection)
 # PARAMS:
 #  suburb_list = [ot_name, ..], in this case ot_nr is not relevant
 #  debug_mode (bool) no saving images or to DB if debug mode on
-def get_cyclomedia_data(db_config, db_user, suburb_list, cyclo_segment_db_table, debug_mode):
+def get_cyclomedia_data(db_config_path:str, db_user:str, suburb_list:list, cyclo_segment_db_table:str, debug_mode:bool):
+
+    if not db_config_path:
+        db_config_path = f'{RES_FOLDER_PATH}/{DB_CONFIG_FILE_NAME}'
+    if not db_user:
+        db_user = DB_USER
+
     print("getting cyclomedia data...")
     global log_start 
     log_start = datetime.now()
 
-    with open_connection(db_config, db_user) as con:
+    with open_connection(db_config_path, db_user) as con:
 
         cursor = con.cursor()
         if suburb_list == []:
@@ -283,7 +262,7 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, cyclo_segment_db_table,
        
                         #rec_IDs = get_nearest_recordings_for_street_pts((start_lat, start_lon), (end_lat, end_lon), shift_length, slope_origin, quadrant, [])
                         recordings = get_recordings_for_segment(bbox) 
-                        img_folder_dir = PATHS.CYCLO_IMG_FOLDER_PATH + ot_name + "/"
+                        img_folder_dir = CYCLO_IMG_FOLDER_PATH + ot_name + "/"
                         rec_IDs = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = recordings, north_deviation_street = north_deviation_street, max_distance = 9, folder_dir= img_folder_dir, debug_mode = debug_mode)
                         if not debug_mode:
                             load_into_db(rec_IDs=rec_IDs, segment_id = segment_id, segmentation_number=segmentation_number, db_table=cyclo_segment_db_table, connection=con)
@@ -306,7 +285,7 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, cyclo_segment_db_table,
        
                             #rec_IDs = get_nearest_recordings_for_street_pts((start_lat, start_lon), (end_lat, end_lon), shift_length, slope_origin, quadrant, [])
                             recordings = get_recordings_for_segment(bbox) 
-                            img_folder_dir = PATHS.CYCLO_IMG_FOLDER_PATH + ot_name + "/"
+                            img_folder_dir = CYCLO_IMG_FOLDER_PATH + ot_name + "/"
                             rec_IDs = get_image_IDs_from_cyclomedia(segment_id = segment_id, segmentation_number = segmentation_number, rec_IDs = recordings, north_deviation_street = north_deviation_street, max_distance = 9, folder_dir= img_folder_dir, debug_mode= debug_mode)
                             if not debug_mode:
                                 load_into_db(rec_IDs=rec_IDs, segment_id=segment_id, segmentation_number=segmentation_number, db_table=cyclo_segment_db_table, connection=con)
@@ -315,7 +294,5 @@ def get_cyclomedia_data(db_config, db_user, suburb_list, cyclo_segment_db_table,
 
 if __name__ == "__main__":
     # debug_mode: no saving to DB and to image folder if debug mode on
-
-    config_path = f'{RES_FOLDER_PATH}/{DB_CONFIG_FILE_NAME}'
                                                     #suburb list = [string, string,... ]    #segments_cyclomedia_newmethod
-    get_cyclomedia_data(config_path, PATHS.DB_USER, suburb_list=['Südvorstadt'], cyclo_segment_db_table="segments_cyclomedia_withdeviation", debug_mode = False)
+    get_cyclomedia_data(db_config_path=None, db_user=None, suburb_list=['Südvorstadt'], cyclo_segment_db_table="segments_cyclomedia_withdeviation", debug_mode = False)

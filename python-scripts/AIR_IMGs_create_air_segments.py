@@ -1,7 +1,7 @@
 import ERROR_CODES as ec
 from DB_helpers import open_connection
 from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, AIR_CROPPED_OUT_FOLDER_PATH, AIR_CROPPED_ITERATION_FOLDER_PATH, DATASET_FOLDER_PATH, extern_AIR_IMGS_FOLDER_PATH, DB_USER
-from AIR_IMGs_process import cut_out_shape
+from AIR_IMGs_helper_methods import cut_out_shape
 from helpers_geometry import calculate_bounding_box
 from LOG import log
 
@@ -16,9 +16,14 @@ execution_file = "AIR_IMGs_create_air_segments"
 
 
 # suburb_list = [(ot_name, ot_nr), ..]
-def create_air_segments(db_config_path, db_user, suburb_list):
+def create_air_segments(db_config_path:str, db_user:str, suburb_list):
     global log_start
     log_start = datetime.now()
+
+    if not db_config_path:
+        db_config_path = f'{RES_FOLDER_PATH}/{DB_CONFIG_FILE_NAME}'
+    if not db_user:
+        db_user = DB_USER
 
     with open_connection(db_config_path, db_user) as con:
         recording_year = 2019
@@ -182,5 +187,4 @@ def create_air_segments(db_config_path, db_user, suburb_list):
                     
 
 if __name__ == "__main__":
-    config_path = f'{RES_FOLDER_PATH}/{DB_CONFIG_FILE_NAME}'
-    create_air_segments(db_config_path=config_path, db_user=DB_USER, suburb_list=[])
+    create_air_segments(db_config_path=None, db_user=None, suburb_list=[])

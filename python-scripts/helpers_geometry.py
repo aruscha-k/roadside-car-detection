@@ -65,6 +65,32 @@ def calculate_street_deviation_from_north(start_pt, end_pt):
     return -np.degrees(angle)
 
 
+def is_recording_direction_equal_street_direction(viewing_direction, street_north_deviation):
+    """calculate shortest_angular_distance between cyclomedia recording direction angle and street north deviation angle
+        if between specified range return True, else False
+
+    Args:
+        viewing_direction (float): viewing direction of cyclomedia car
+        street_north_deviation (float): street deviation from north 
+
+    Returns:
+        bool: True if they point "in the same direction", else false
+    """
+    #print("street deviation:", street_north_deviation, "cyclomedia deviation:", viewing_direction)
+    # Calculate the absolute difference between the angles
+    abs_diff = abs(viewing_direction - street_north_deviation)
+    #print("viewing_direction: ", viewing_direction, street_north_deviation)
+    
+    # Check for wraparound
+    if abs_diff > 180:
+        abs_diff = 360 - abs_diff
+
+    if 0 <= abs_diff <= 30:
+        return True
+    else:
+        return False
+    
+
 def calculate_quadrant_from_center(str_pts):
     """ given a specific point for a cities center, calculate in which quadrant a street lies, when point of origin is city center
         check which EPSG input coordinates are in and use correct center pt respectively
