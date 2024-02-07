@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 import os
 import torch
-from sklearn.cluster import KMeans
+
 from collections import Counter
 from detectron2 import model_zoo
 from detectron2.engine import DefaultPredictor
@@ -11,7 +11,7 @@ from detectron2.utils.visualizer import Visualizer
 
 from PATH_CONFIGS import RES_FOLDER_PATH, CYCLO_DETECTION_MODEL, AIR_DETECTION_MODEL, CYCLO_IMG_FOLDER_PATH, AIR_CROPPED_ROTATED_FOLDER_PATH, AIR_CROPPED_ITERATION_FOLDER_PATH, DEMO_AIR_DETECTION_FOLDER_PATH, DEMO_CYCLO_DETECTION_FOLDER_PATH
 from helpers_coordiantes import is_point_within_polygon
-from AIR_IMGs_process import transform_geotif_to_north
+from AIR_IMGs_helper_methods import transform_geotif_to_north
 
 
 # July 23 trained net
@@ -60,42 +60,6 @@ def load_cyclo_predictor():
     predictor = DefaultPredictor(cfg)
     return predictor
 
-
-#TODO check visually!
-def remove_unparked_cars_for_air(instances):
-    """ cluster the instances on their x cooridinates and remove the outliers, there should be two clusters, one cluster for each side of the street. the outliers are cars that are not parked
-
-    Args:
-        instances (np array): return of detectron
-
-    Returns:
-        instances (np array): filtered instances without "driving" cars
-    """
-
-    centers = instances.pred_boxes.get_centers().cpu().numpy()
-
-    # Cluster the x-coordinates using K-means
-    kmeans = KMeans(n_clusters=2)
-    centers_x = centers[:, 0].reshape(-1, 1)
-    kmeans.fit(centers_x)
-    cluster_centers = kmeans.cluster_centers_
-
-    # Calculate the distance of all points to the closest cluster center
-    distances = np.empty_like(centers_x)
-    for i in range(len(centers_x)):
-        distances[i] = min(abs(centers_x[i] - cluster_centers[0]), abs(centers_x[i] - cluster_centers[1]))
-
-    # Define a threshold for the maximum distance from the cluster center
-    max_distance = abs(cluster_centers[0][0] - cluster_centers[1][0]) * 0.4
-
-    # Identify the points that are too far from the cluster centers
-    outliers = np.where(distances > max_distance)[0]
-    print("Removing " + str(len(outliers)) + " unparked cars")
-
-    # Remove the outlier points from the instances object
-    instances = instances[~np.isin(np.arange(len(centers)), outliers)]
-
-    return instances
 
 
 def transform_air_img(img_file_name, img_bbox, out_file_type):
@@ -167,9 +131,6 @@ def add_no_detection_area_for_air(im):
     cv2.fillPoly(im, pts=polygon_vertices, color=(0, 0, 0))
 
     return im
-
-
-
 
 
 def assign_left_right(im, boxes, classes):
@@ -247,6 +208,8 @@ def calculate_parking(predictions, img_type):
         right_percentage = counts_right_most_common / len(predictions[iteration_number]['right'])*100
         parking_dict[iteration_number]['right'] = (class_dict[class_right_most_common], round(right_percentage,2))
 
+        #TODO case not explicitly handled, that there are two classes occuring the same number of times.
+
     return parking_dict
 
 
@@ -269,7 +232,6 @@ def run_detection(img_filename_and_position_list, ot_name, img_type, iter_inform
         predictor = load_cyclo_predictor()
     else:
         print("[!] invalid img type - cannot load predictor")
-    
     predictions = dict()    
     # go through each iteration
     for idx, (iteration_number, iteration_poly) in enumerate(iter_information_dict.items()):

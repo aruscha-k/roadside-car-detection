@@ -39,12 +39,12 @@ def add_image_to_list(img_folder, img_file, img_position_information, img_path_a
     return img_path_and_position_list
 
 
-def run(db_config, db_user, suburb_list, img_type, result_table_name):
+def run_ml_detection(db_config_path:str, db_user:str, suburb_list:list, img_type:str, result_table_name:str):
     """ run methods to get images, use ML detection and write results to DB
         iterate all segments in suburb and, for each segment fetch all iteration steps (bounding boxes). for each box, check which record IDs (cyclo) / detected cars (air) lie within and run ML on them
         write result to DB
     Args:
-        db_config (str): path to config file
+        db_config_path (str): path to config file
         db_user (str): DB user to log in
         suburb_list (list of tuples): (ot_name, ot_nummer)
         img_type (str): air or cyclo
@@ -52,8 +52,13 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
     """
     global log_start
     log_start = datetime.now()
+
+    if not db_config_path:
+        db_config_path = f'{RES_FOLDER_PATH}/{DB_CONFIG_FILE_NAME}'
+    if not db_user:
+        db_user = DB_USER
     
-    with open_connection(db_config, db_user) as con:
+    with open_connection(db_config_path, db_user) as con:
         
         cursor = con.cursor()
 
@@ -81,9 +86,8 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
 
             for i, segment_id in enumerate(segment_id_list):
                 print(f"------{i+1} of {len(segment_id_list)+1}, segment_ID: {segment_id}--------")
-
+                
                 cursor.execute("""SELECT segmentation_number FROM segments_segmentation WHERE segment_id = %s ORDER BY segmentation_number ASC""", (segment_id, ))
-
                 segments_segmentation_rows = cursor.fetchall()
                 if segments_segmentation_rows == []:
                     print("no result for segment: ", segment_id)
@@ -148,7 +152,7 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
 
                         #print(img_filename_and_position_list,"\n", iter_information)
                         parking_dict = run_detection(img_filename_and_position_list, ot_name, img_type, iter_information, filter_unparked_cars=False)
-
+                        
                         # write to DB # parking_dict = {iteration_number: {'left': (parking, percentage), 'right': (parking, percentage)}}
                         for iteration_number, value in parking_dict.items():
                             for side, (parking, percentage) in value.items():
@@ -159,15 +163,11 @@ def run(db_config, db_user, suburb_list, img_type, result_table_name):
                                 except psycopg2.errors.UniqueViolation as e:
                                     print(e) #TODO LOG?
                                     con.rollback()
-                                    continue
-
 
 
 if __name__ == "__main__":
-
-    db_config_path = os.path.join(RES_FOLDER_PATH, DB_CONFIG_FILE_NAME)
-    run(db_config_path, DB_USER, ['Südvorstadt', 'Volkmarsdorf'], img_type="cyclo", result_table_name="parking_cyclo_nofilter")
-    #run(db_config_path, DB_USER, ['Südvorstadt', 'Volkmarsdorf'], img_type="air", result_table_name="parking_iteration_air_only_nofilter")
+    #run_ml_detection(db_config_path=None, db_user=None, suburb_list=['Südvorstadt'], img_type="cyclo", result_table_name="parking_cyclo_nofilter")
+    run_ml_detection(db_config_path=None, db_user=None, suburb_list=['Südvorstadt'], img_type="air", result_table_name="parking_iteration_air_only_nofilter")
 
 
 #https://atlas.cyclomedia.com/PanoramaRendering/Render/WE4IK5SE/?apiKey=2_4lO_8ZuXEBuXY5m7oVWzE1KX41mvcd-PQZ2vElan85eLY9CPsdCLstCvYRWrQ5&srsName=epsg:55567837&direction=0&hfov=80
