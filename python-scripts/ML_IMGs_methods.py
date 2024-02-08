@@ -288,10 +288,6 @@ def run_detection(img_filename_and_position_list, ot_name, img_type, iter_inform
                     cropped_rotated_img = add_no_detection_area_for_air(cropped_rotated_img)
                 outputs = predictor(cropped_rotated_img)
                 instances = outputs["instances"].to("cpu")
-        
-                # if filter_unparked_cars and (len(instances) > 3):
-                #     instances = remove_unparked_cars_for_air(instances)
-                    
 
                 bboxes = instances.pred_boxes.tensor.cpu().numpy()
                 classes = instances.pred_classes.cpu().numpy()
@@ -301,7 +297,6 @@ def run_detection(img_filename_and_position_list, ot_name, img_type, iter_inform
                     os.mkdir(demo_img_folder)
                 
                 visualize_and_save_prediction_img(cropped_rotated_img, instances, "air", show_img = False, save_img = True, pred_img_filepath = demo_img_folder + img_file_name + ".jpg") #for scads demo, save the image file with predictions
-                #find_best_line_through_boxes(cropped_rotated_img, instances)
 
                 all_left, all_right = assign_left_right(cropped_rotated_img, bboxes, classes)
                 #draw_assigned_classes_in_air_imgs(left, right, transformed_poly_points, out_img_path)
