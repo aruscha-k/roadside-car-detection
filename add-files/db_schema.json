@@ -89,6 +89,23 @@
         }
     },
     {
+        "name": "driveways_cyclomedia",
+        "columns": [
+            {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "segmentation_number", "type": "int"},
+            {"name": "recording_id", "type": "text"},
+            {"name": "side", "type": "text"},
+            {"name": "driveway", "type": "bool"},
+            {"name": "percentage", "type": "float8"},
+            {"name": "recording_lat", "type": "float8"},
+            {"name": "recording_lon", "type": "float8"},
+            {"name": "recording_year", "type": "int" }
+        ],
+        "constraints": {
+            "primaryKey": ["segment_id", "recording_id", "segmentation_number", "side"]
+        }
+    },
+    {
         "name": "parking_segment_annotated",
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
