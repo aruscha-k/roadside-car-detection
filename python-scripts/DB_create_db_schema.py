@@ -1,5 +1,5 @@
 '''
-script vor db creation as given in schema config
+script for db creation as given in schema config
 '''
 
 import DB_helpers as db_helper
@@ -60,6 +60,8 @@ def run_create_db_schema(res_folder_path:str=None, config_file_name:str=None) ->
         create_tables(con, tables)
 
     print('create_db_schema Done')
+
+
 
 if __name__ == "__main__":
     run_create_db_schema()
