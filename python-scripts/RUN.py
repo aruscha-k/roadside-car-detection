@@ -10,13 +10,16 @@ from ML_IMGs_run import run_ml_detection
 from ML_result_merge import run_merge_ml_results
 
 
+# set database config in db_config.json
+# set filepaths to city data in load_data_config.json
+
 run_setup = True
-run_image_extraction = True
-run_image_detection = True
+run_image_extraction = False
+run_image_detection = False
 
 suburb_list = []
 
-if __name__ == "main":
+if __name__ == "__main__":
     # CREATION OF ALL NECESSARY DATANBASES
     if run_setup:
         run_create_db_schema()
@@ -29,7 +32,7 @@ if __name__ == "main":
     # EXTRACTION OF IMAGES; if db_config_path and db_user set to None, they are taken from config file
     if run_image_extraction:
         get_cyclomedia_data(db_config_path=None, db_user=None, suburb_list=suburb_list, cyclo_segment_db_table="segments_cyclomedia_withdeviation", debug_mode = False)
-        get_cyclomedia_data_for_driveways(db_config_path=None, db_user=None, suburb_list=suburb_list, cyclo_segment_db_table="segments_cyclomedia_withdeviation")
+        #get_cyclomedia_data_for_driveways(db_config_path=None, db_user=None, suburb_list=suburb_list, cyclo_segment_db_table="segments_cyclomedia_withdeviation")
         create_air_segments(db_config_path=None, db_user=None, suburb_list=suburb_list)
 
     # RUN ML DETECTION
