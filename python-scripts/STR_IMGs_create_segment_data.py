@@ -141,7 +141,7 @@ def load_into_db(rec_IDs:list, segment_id, segmentation_number:int, db_table:str
     cursor = connection.cursor()
     if check_for_only_error_values(rec_IDs):
         try:
-            cursor.execute("""INSERT INTO {} VALUES (%s, %s, %s, %s, %s, %s, %s) """.format(db_table), (segment_id, ec.CYCLO_NO_REC_ID_TOTAL, segmentation_number, 0, 0, 0, 0,))
+            cursor.execute("""INSERT INTO {} (segment_id, recording_id, segmentation_number, recording_lat, recording_lon, recording_direction, recording_year) VALUES (%s, %s, %s, %s, %s, %s, %s) """.format(db_table), (segment_id, ec.CYCLO_NO_REC_ID_TOTAL, segmentation_number, 0, 0, 0, 0,))
             log(execution_file=execution_file, img_type="cyclo", logstart=log_start, logtime=datetime.now(), message= f"Only Error codes for segment: {segment_id}")
             connection.commit()
         except psycopg2.errors.UniqueViolation:
@@ -153,7 +153,7 @@ def load_into_db(rec_IDs:list, segment_id, segmentation_number:int, db_table:str
         for dict_item in rec_IDs:
             try:
                 record_lat, record_lon = dict_item['recording_location'][0], dict_item['recording_location'][1]
-                cursor.execute("""INSERT INTO {} VALUES (%s, %s, %s, %s, %s, %s, %s) """.format(db_table), (segment_id, dict_item['recording_id'], segmentation_number, record_lat, record_lon, dict_item['recording_direction'], dict_item['recording_year'], ))
+                cursor.execute("""INSERT INTO {} (segment_id, recording_id, segmentation_number, recording_lat, recording_lon, recording_direction, recording_year) VALUES (%s, %s, %s, %s, %s, %s, %s) """.format(db_table), (segment_id, dict_item['recording_id'], segmentation_number, record_lat, record_lon, dict_item['recording_direction'], dict_item['recording_year'], ))
                 connection.commit()
             except psycopg2.errors.UniqueViolation as e:
                 print(f"Value already in table. segment {segment_id}, segmentation number {segmentation_number} ")
