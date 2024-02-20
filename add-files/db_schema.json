@@ -206,6 +206,7 @@
             {"name": "segmentation_number", "type": "int"},
             {"name": "recording_lat", "type": "float8"},
             {"name": "recording_lon", "type": "float8"},
+            {"name": "recording_direction", "type": "float8"},
             {"name": "recording_year", "type": "int" }
         ],
         "constraints": {
