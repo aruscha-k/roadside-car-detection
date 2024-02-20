@@ -139,12 +139,12 @@ def run_read_city_data(res_folder_path:str=None, load_data_config_name:str=None,
     if not data_set_path:
         data_set_path = DATASET_FOLDER_PATH
 
-    print('Start load_data...')
+    print('Start read city data...')
 
     load_data_config_path = f'{res_folder_path}/{load_data_config_name}'
     load_data_config = db_helper.load_json(load_data_config_path)
 
-    db_config_path = f'{res_folder_path}/{load_data_config["db_config"]}'
+    db_config_path = f'{res_folder_path}/{DB_CONFIG_FILE_NAME}'
     db_config = db_helper.load_json(db_config_path)
 
     data_sets_filenames = [item['file_path'] for item in load_data_config['data_scources']]
