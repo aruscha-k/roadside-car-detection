@@ -210,7 +210,7 @@
             {"name": "recording_year", "type": "int" }
         ],
         "constraints": {
-            "primaryKey": ["segment_id", "recording_id", "segmentation_number"]
+            "primaryKey": ["segment_id", "recording_id", "segmentation_number", "recording_year"]
         }
     },
     {
@@ -222,7 +222,7 @@
             {"name": "bbox", "type": "jsonb"}
         ],
         "constraints": {
-            "primaryKey": ["segment_id", "segmentation_number"]
+            "primaryKey": ["segment_id", "segmentation_number", "recording_year"]
         }
     }
 ]

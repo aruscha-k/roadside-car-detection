@@ -1,5 +1,6 @@
 import ERROR_CODES as ec
 from DB_helpers import open_connection
+from GLOBAL_VARS import RECORDING_YEAR
 from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, AIR_CROPPED_OUT_FOLDER_PATH, AIR_CROPPED_ITERATION_FOLDER_PATH, DATASET_FOLDER_PATH, extern_AIR_IMGS_FOLDER_PATH, DB_USER
 from AIR_IMGs_helper_methods import cut_out_shape
 from helpers_geometry import calculate_bounding_box
@@ -16,7 +17,7 @@ execution_file = "AIR_IMGs_create_air_segments"
 
 
 # suburb_list = [(ot_name, ot_nr), ..]
-def create_air_segments(db_config_path:str, db_user:str, suburb_list):
+def create_air_segments(db_config_path:str, db_user:str, suburb_list:list):
     global log_start
     log_start = datetime.now()
 
@@ -26,7 +27,6 @@ def create_air_segments(db_config_path:str, db_user:str, suburb_list):
         db_user = DB_USER
 
     with open_connection(db_config_path, db_user) as con:
-        recording_year = 2019
         cursor = con.cursor()
        
         if suburb_list == []:
@@ -55,7 +55,7 @@ def create_air_segments(db_config_path:str, db_user:str, suburb_list):
             segment_id_list = [item[0] for item in id_fetch]
 
             # in tif
-            in_tif = DATASET_FOLDER_PATH + "air-imgs/" + str(recording_year) +"/" + str(ot_nr) +"_"+ str(recording_year) + ".tif"
+            in_tif = DATASET_FOLDER_PATH + "air-imgs/" + str(RECORDING_YEAR) +"/" + str(ot_nr) +"_"+ str(RECORDING_YEAR) + ".tif"
             if not os.path.exists(in_tif):
                 print("[!] No input TIF to cut out from")
                 continue
@@ -85,7 +85,7 @@ def create_air_segments(db_config_path:str, db_user:str, suburb_list):
                
                 #check if the data already exists in folder or in tag table?: TODO
                 else:
-                    cursor.execute("""SELECT * FROM segments_air WHERE segment_id = %s AND segmentation_number = %s""", (segment_id, segmentation_number, ))
+                    cursor.execute("""SELECT * FROM segments_air WHERE segment_id = %s AND segmentation_number = %s AND recording_year = %s""", (segment_id, segmentation_number, RECORDING_YEAR,))
                     segment_result_row = cursor.fetchall()
                     if segment_result_row != []:
                         print("EXIST - SKIP")
@@ -117,7 +117,7 @@ def create_air_segments(db_config_path:str, db_user:str, suburb_list):
                     
                     if cut_out_success:
                         try:
-                            cursor.execute("""INSERT INTO segments_air VALUES (%s, %s, %s, %s)""", (segment_id, segmentation_number, recording_year, json.dumps(bbox)), )
+                            cursor.execute("""INSERT INTO segments_air (segment_id, segmentation_number, recording_year, bbox) VALUES (%s, %s, %s, %s)""", (segment_id, segmentation_number, RECORDING_YEAR, json.dumps(bbox)), )
                             con.commit()
                         except psycopg2.errors.UniqueViolation:
                             con.rollback()
@@ -160,7 +160,7 @@ def create_air_segments(db_config_path:str, db_user:str, suburb_list):
                         cut_out_success, message = cut_out_shape(bbox, segment_out_tif, in_tif)
                         if cut_out_success:
                             try:
-                                cursor.execute("""INSERT INTO segments_air VALUES (%s, %s, %s, %s)""", (segment_id, segmentation_number, recording_year, json.dumps(bbox)), )
+                                cursor.execute("""INSERT INTO segments_air (segment_id, segmentation_number, recording_year, bbox) VALUES (%s, %s, %s, %s)""", (segment_id, segmentation_number, RECORDING_YEAR, json.dumps(bbox)), )
                                 con.commit()
                             except psycopg2.errors.UniqueViolation:
                                 con.rollback()
