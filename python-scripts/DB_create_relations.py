@@ -65,6 +65,14 @@ def create_iteration_boxes(str_start, str_end, width, quadrant):
 
     #first shift
     x_start, y_start  = str_start[0], str_start[1]
+     # in case of a very short street that would otherwise be divided into one iteration and one very short piece
+    dist = calulate_distance_of_two_coords([x_start, y_start], str_end)
+    if ITERATION_LENGTH <= dist <= (ITERATION_LENGTH*1.2):
+        #last point when codition was false
+        bbox = calculate_bounding_box([(x_start, y_start), (str_end[0], str_end[1])], width, quadrant)
+        iteration_segments.append(bbox)
+        return iteration_segments
+    
     x_shifted, y_shifted = shift_pt_along_street((x_start, y_start), x_angle, ITERATION_LENGTH, slope, b, quadrant)
     while segment_iteration_condition(slope, x_angle, str_start, str_end, x_shifted, y_shifted, quadrant):
         # bbox type = [start_left, end_left, end_right, start_right]
@@ -192,7 +200,7 @@ def create_segmentation_and_iteration(db_config:str=None, db_user:str=None):
 
         for idx, res_item in enumerate(result):
             segment_id, segm_gid, geom_type, geom_coords = res_item[0], res_item[1], res_item[2], res_item[3]
-            print("segment id", idx, segment_id)
+            print(f"segment id {segment_id}, item {idx+1} of {len(result)}")
           
             # geom_type can be LineString or MultiLineString
             #TODO: Multilinestring
