@@ -13,6 +13,9 @@ from PATH_CONFIGS import RES_FOLDER_PATH, CYCLO_DETECTION_MODEL, AIR_DETECTION_M
 from helpers_coordiantes import is_point_within_polygon
 from AIR_IMGs_helper_methods import transform_geotif_to_north
 
+import warnings
+# Filter out the specific UserWarning for torch
+warnings.filterwarnings("ignore", message="torch.meshgrid: in an upcoming release, it will be required to pass the indexing argument.", category=UserWarning)
 
 # July 23 trained net
 def load_air_predictor():
@@ -228,10 +231,18 @@ def run_detection(img_filename_and_position_list, ot_name, img_type, iter_inform
 
     if img_type == "air":
         predictor = load_air_predictor()
+        demo_img_folder = os.path.join(DEMO_AIR_DETECTION_FOLDER_PATH, ot_name + "/")
+        if not os.path.exists(demo_img_folder):
+            os.mkdir(demo_img_folder)
+
     elif img_type == "cyclo":
         predictor = load_cyclo_predictor()
+        demo_img_folder = os.path.join(DEMO_CYCLO_DETECTION_FOLDER_PATH, ot_name + "/")
+        if not os.path.exists(demo_img_folder):
+            os.mkdir(demo_img_folder)
     else:
         print("[!] invalid img type - cannot load predictor")
+
     predictions = dict()    
     # go through each iteration
     for idx, (iteration_number, iteration_poly) in enumerate(iter_information_dict.items()):
@@ -260,14 +271,11 @@ def run_detection(img_filename_and_position_list, ot_name, img_type, iter_inform
                         classes = instances.pred_classes.cpu().numpy()
                         im_left, im_right = assign_left_right(img, bboxes, classes) #list of tuples (box, class)
                         #print("im left: ", im_left, "im_right", im_right)
-                        predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = 'left', predicted_classes_for_side = [item[1] for item in im_left],  predictions = predictions[iteration_number])
-                        predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = 'right', predicted_classes_for_side = [item[1] for item in im_right], predictions = predictions[iteration_number])
-
-                        demo_img_folder = os.path.join(DEMO_CYCLO_DETECTION_FOLDER_PATH, ot_name + "/")
-                        if not os.path.exists(demo_img_folder):
-                            os.mkdir(demo_img_folder)
+                        predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = 'left', predicted_classes_for_side = [item[1] for item in im_left],  predictions_per_iteration = predictions[iteration_number])
+                        predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = 'right', predicted_classes_for_side = [item[1] for item in im_right], predictions_per_iteration = predictions[iteration_number])        
                         visualize_and_save_prediction_img(img, instances, "cyclo", show_img = False, save_img = True, pred_img_filepath = demo_img_folder + img_filename) #for scads demo, save the image file with predictions
                 #print("predictions", predictions)
+        
         if img_type == "air":
             img_file_name = img_filename_and_position_list[idx][0]
             if img_file_name == "": #if there is no image add -2 for both sides
@@ -291,49 +299,45 @@ def run_detection(img_filename_and_position_list, ot_name, img_type, iter_inform
 
                 bboxes = instances.pred_boxes.tensor.cpu().numpy()
                 classes = instances.pred_classes.cpu().numpy()
-
-                demo_img_folder = os.path.join(DEMO_AIR_DETECTION_FOLDER_PATH, ot_name + "/")
-                if not os.path.exists(demo_img_folder):
-                    os.mkdir(demo_img_folder)
                 
                 visualize_and_save_prediction_img(cropped_rotated_img, instances, "air", show_img = False, save_img = True, pred_img_filepath = demo_img_folder + img_file_name + ".jpg") #for scads demo, save the image file with predictions
 
                 all_left, all_right = assign_left_right(cropped_rotated_img, bboxes, classes)
                 #draw_assigned_classes_in_air_imgs(left, right, transformed_poly_points, out_img_path)
-                predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = "left", predicted_classes_for_side = [item[1] for item in all_left], predictions = predictions[iteration_number])
-                predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = "right", predicted_classes_for_side = [item[1] for item in all_right], predictions = predictions[iteration_number])
-                                
+                predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = "left", predicted_classes_for_side = [item[1] for item in all_left], predictions_per_iteration = predictions[iteration_number])
+                predictions[iteration_number] = assign_predictions_to_side_and_iteration(side = "right", predicted_classes_for_side = [item[1] for item in all_right], predictions_per_iteration = predictions[iteration_number])
+          
     # for all predictions, calculate the parking
-    parking_dict =  calculate_parking(predictions, img_type)
+    parking_dict = calculate_parking(predictions, img_type)
     #print(parking_dict)
 
     return parking_dict
 
 
-def assign_predictions_to_side_and_iteration(side, predicted_classes_for_side, predictions):
+def assign_predictions_to_side_and_iteration(side, predicted_classes_for_side, predictions_per_iteration):
     """ method to add prediction per image to side and iteration per iteration
 
     Args:
         side (string): parkign side "left" / "right"
         predicted_classes_for_side (list): list of predicted classes
-        predictions (dict): dict of collected predictions per iteration => predictions[iteration_number]
+        predictions_per_iteration (dict): dict of collected predictions per iteration => predictions[iteration_number]
 
     Returns:
         dict: extended dict with the new info from this iteration
     """
     
-    if side in predictions.keys():
+    if side in predictions_per_iteration.keys():
         if len(predicted_classes_for_side) == 0:
-            predictions[side].extend([-1])
+            predictions_per_iteration[side].extend([-1])
         else:
-            predictions[side].extend(predicted_classes_for_side)
+            predictions_per_iteration[side].extend(predicted_classes_for_side)
     else:
         if len(predicted_classes_for_side) == 0:
-            predictions[side] = [-1]
+            predictions_per_iteration[side] = [-1]
         else: 
-            predictions[side] = predicted_classes_for_side
-    #print(predictions)
-    return predictions
+            predictions_per_iteration[side] = predicted_classes_for_side
+    #print(predictions_per_iteration)
+    return predictions_per_iteration
 
 
 # -------- for debug and demo ----------------
