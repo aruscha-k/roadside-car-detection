@@ -109,19 +109,17 @@ def run_ml_detection(db_config_path:str, db_user:str, suburb_list:list, img_type
                             log(execution_file = execution_file, img_type=img_type, logstart=log_start, logtime=datetime.now(), message=f"{segment_id}: No iteration information for segment")
                             continue
 
-
-                        # check for existing in DB: if in the parking table (parking_res_count) there is the same number as iteration numbers * 2 (for left, right), there is already an entry so SKIP
+                        #check for existing in DB: if in the parking table (parking_res_count) there is the same number as iteration numbers * 2 (for left, right), there is already an entry so SKIP
                         cursor.execute("""SELECT count(*) FROM {} WHERE segment_id = %s AND segmentation_number = %s""".format(result_table_name), (segment_id, segmentation_number,))
                         parking_res_count = cursor.fetchone()[0]
                         if parking_res_count == (len(iteration_result_rows)*2):
                             print("EXISTS - skip")
                             continue
 
-
                         img_filename_and_position_list = []
                         if img_type == "cyclo":
                             
-                            cursor.execute("""SELECT recording_id, recording_lat, recording_lon FROM segments_cyclomedia_newmethod WHERE segment_id = %s AND segmentation_number = %s""", (segment_id, segmentation_number, ))
+                            cursor.execute("""SELECT recording_id, recording_lat, recording_lon FROM segments_cyclomedia WHERE segment_id = %s AND segmentation_number = %s""", (segment_id, segmentation_number, ))
                             cyclo_rows = cursor.fetchall()
                             for row in cyclo_rows:
                             
@@ -150,14 +148,14 @@ def run_ml_detection(db_config_path:str, db_user:str, suburb_list:list, img_type
                                 img_file_name = str(ot_name) + "_" +  str(segment_id)+ "_" + str(segmentation_number) + "_" + str(iteration_number) + ".tif"
                                 img_filename_and_position_list = add_image_to_list(img_folder = AIR_CROPPED_ITERATION_FOLDER_PATH, img_file = img_file_name, img_position_information = iteration_poly, img_path_and_position_list = img_filename_and_position_list, img_type=img_type, segment_id=segment_id)
 
-                        #print(img_filename_and_position_list,"\n", iter_information)
-                        parking_dict = run_detection(img_filename_and_position_list, ot_name, img_type, iter_information, filter_unparked_cars=False)
+                        #print(img_filename_and_position_list,"\n", iter_information)                        
+                        parking_dict = run_detection(img_filename_and_position_list, ot_name, img_type, iter_information, filter_unparked_cars=True)
                         
                         # write to DB # parking_dict = {iteration_number: {'left': (parking, percentage), 'right': (parking, percentage)}}
                         for iteration_number, value in parking_dict.items():
                             for side, (parking, percentage) in value.items():
                                 try:
-                                    cursor.execute("""INSERT INTO {} VALUES (%s, %s, %s, %s, %s, %s)""".format(result_table_name), (segment_id, segmentation_number, iteration_number, side, parking, percentage,))
+                                    cursor.execute("""INSERT INTO {} (segment_id, segmentation_number, iteration_number, parking_side, value, percentage) VALUES (%s, %s, %s, %s, %s, %s)""".format(result_table_name), (segment_id, segmentation_number, iteration_number, side, parking, percentage,))
                                     con.commit()
                                    
                                 except psycopg2.errors.UniqueViolation as e:
