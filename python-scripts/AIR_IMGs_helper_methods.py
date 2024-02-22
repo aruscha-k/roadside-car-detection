@@ -21,13 +21,14 @@ def load_tiff(geotiff_path):
     with rasterio.open(geotiff_path) as dataset:
         transform = dataset.transform
         meta = dataset.meta
-
-        red_band = dataset.read(1)
-        green_band = dataset.read(2)
-        blue_band = dataset.read(3)
-        alpha = dataset.read(4)
-        rgba_image = np.dstack((blue_band, green_band, red_band, alpha))
-        
+        try: 
+            red_band = dataset.read(1)
+            green_band = dataset.read(2)
+            blue_band = dataset.read(3)
+            alpha = dataset.read(4)
+            rgba_image = np.dstack((blue_band, green_band, red_band, alpha))
+        except IndexError:
+            rgba_image = np.dstack((blue_band, green_band, red_band))
     return rgba_image, transform, meta
 
 
