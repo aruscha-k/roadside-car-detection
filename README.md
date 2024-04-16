@@ -1,11 +1,25 @@
 # Create an environment like so:
+Note for Python 3.10 on M1 / Apple Silicon:
+Its best to install the following before trying to setup the conda env
+```bash
+brew tap homebrew/core
+brew install postgresql
+brew install libpq
+brew install openssl
+export PATH="$PATH:$(which pg_config)"
+export PATH="$PATH:$(which openssl)"
+```
+
 ```bash
 conda create --name cut_parkplatz_data python=3.10 --file requirements_conda.txt
 conda activate cut_parkplatz_data
 pip install -r requirements.txt
 ```
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 624bcc7510c485008bcaf1653da719d629b9a958
 
 
 # Installing the Database System Postgis
@@ -34,7 +48,12 @@ CREATE EXTENSION postgis_raster SCHEMA postgis;
 CREATE  EXTENSION pgrouting SCHEMA postgis;
 CREATE USER cut WITH PASSWORD 'get the password from the file in the cloud' CREATEDB;
 CREATE DATABASE streets_leipzig;
+<<<<<<< HEAD
 
+=======
+\c streets_leipzig
+CREATE EXTENSION postgis;
+>>>>>>> 624bcc7510c485008bcaf1653da719d629b9a958
 \q
 
 sudo nano /etc/postgresql/14/main/postgresql.conf
@@ -48,9 +67,24 @@ sudo nano /etc/postgresql/14/main/postgresql.conf
 echo 'host    all             cut             172.26.44.0/22          scram-sha-256' | sudo tee -a /etc/postgresql/14/main/pg_hba.conf
 echo 'host    all             cut             172.22.0.0/15           scram-sha-256' | sudo tee -a /etc/postgresql/14/main/pg_hba.conf
 
+<<<<<<< HEAD
 
 # restart postgresql with
 sudo systemctl restart postgresql
 
 ```
 >>>>>>> parent of 624bcc7 (had to create a duplicate of load_data_server_config.json because it contains the name for the db config again (Which is different for the different modes))
+=======
+# restart postgresql with
+sudo systemctl restart postgresql
+```
+
+# Seting up DB-Schema
+Switch to a client computer with this repo and the conda env installed.
+Then run the following command to create the schema in the database.
+```bash
+python python-scripts/DB_create_db_schema.py
+python python-scripts/DB_create_relations.py
+python python-scripts/DB_load_city_data.py
+```
+>>>>>>> 624bcc7510c485008bcaf1653da719d629b9a958
