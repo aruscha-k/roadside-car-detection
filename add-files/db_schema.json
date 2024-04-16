@@ -37,36 +37,97 @@
         "name": "parking_cyclomedia",
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
-            {"name": "parking", "type": "text"},
+            {"name": "segmentation_number", "type": "int"},
+            {"name": "iteration_number", "type": "int"},
+            {"name": "parking_side", "type": "text"},
             {"name": "value", "type": "text"},
             {"name": "percentage", "type": "float8"}
         ],
         "constraints": {
-            "primaryKey": ["segment_id", "parking", "value"]
+            "primaryKey": ["segment_id", "segmentation_number", "iteration_number", "parking_side"]
         }
     },
     {
         "name": "parking_air",
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
-            {"name": "parking", "type": "text"},
+            {"name": "segmentation_number", "type": "int"},
+            {"name": "iteration_number", "type": "int"},
+            {"name": "parking_side", "type": "text"},
             {"name": "value", "type": "text"},
             {"name": "percentage", "type": "float8"}
         ],
         "constraints": {
-            "primaryKey": ["segment_id", "parking", "value"]
+            "primaryKey": ["segment_id", "segmentation_number", "iteration_number", "parking_side"]
         }
     },
     {
-        "name": "parking",
+        "name": "parking_segment",
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
-            {"name": "parking", "type": "text"},
+            {"name": "segmentation_number", "type": "int"},
+            {"name": "parking_side", "type": "text"},
             {"name": "value", "type": "text"},
             {"name": "percentage", "type": "float8"}
         ],
         "constraints": {
-            "primaryKey": ["segment_id", "parking", "value"]
+            "primaryKey": ["segment_id", "segmentation_number", "parking_side"]
+        }
+    },
+    {
+        "name": "parking_iteration",
+        "columns": [
+            {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "segmentation_number", "type": "int"},
+            {"name": "iteration_number", "type": "int"},
+            {"name": "parking_side", "type": "text"},
+            {"name": "value", "type": "text"},
+            {"name": "percentage", "type": "float8"}
+        ],
+        "constraints": {
+            "primaryKey": ["segment_id", "segmentation_number", "iteration_number", "parking_side"]
+        }
+    },
+    {
+        "name": "driveways_cyclomedia",
+        "columns": [
+            {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "segmentation_number", "type": "int"},
+            {"name": "recording_id", "type": "text"},
+            {"name": "side", "type": "text"},
+            {"name": "driveway", "type": "bool"},
+            {"name": "percentage", "type": "float8"},
+            {"name": "recording_lat", "type": "float8"},
+            {"name": "recording_lon", "type": "float8"},
+            {"name": "recording_year", "type": "int" }
+        ],
+        "constraints": {
+            "primaryKey": ["segment_id", "recording_id", "segmentation_number", "side"]
+        }
+    },
+    {
+        "name": "parking_segment_annotated",
+        "columns": [
+            {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "segmentation_number", "type": "int"},
+            {"name": "parking_side", "type": "text"},
+            {"name": "value", "type": "text"}
+        ],
+        "constraints": {
+            "primaryKey": ["segment_id", "segmentation_number", "parking_side"]
+        }
+    },
+    {
+        "name": "parking_iteration_annotated",
+        "columns": [
+            {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "segmentation_number", "type": "int"},
+            {"name": "iteration_number", "type": "int"},
+            {"name": "parking_side", "type": "text"},
+            {"name": "value", "type": "text"}
+        ],
+        "constraints": {
+            "primaryKey": ["segment_id", "segmentation_number", "iteration_number", "parking_side"]
         }
     },
     {
@@ -84,10 +145,12 @@
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
             {"name": "segmentation_number", "type": "int"},
+            {"name": "width", "type": "float8"},
             {"name": "start_lat", "type": "float8"},
             {"name": "start_lon", "type": "float8"},
             {"name": "end_lat", "type": "float8"},
-            {"name": "end_lon", "type": "float8"}
+            {"name": "end_lon", "type": "float8"},
+            {"name": "quadrant", "type": "int"}
         ],
         "constraints":{
             "primaryKey": ["segment_id", "segmentation_number"],
@@ -95,31 +158,59 @@
         }
     },
     {
-        "name": "segments_segmentation_sides",
+        "name": "visualisation_segments_segmentation_sides",
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
             {"name": "segmentation_number", "type": "int"},
-            {"name": "left_coordinates", "type": "jsonb"},
-            {"name": "right_coordinates", "type": "jsonb"}
+            {"name": "left_coords", "type": "jsonb"},
+            {"name": "right_coords", "type": "jsonb"}
         ],
         "constraints":{
             "primaryKey": ["segment_id", "segmentation_number"],
             "not null": ["segment_id", "segmentation_number"]
+        }
+    },
+    {
+        "name": "segments_segmentation_iteration",
+        "columns": [
+            {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "segmentation_number", "type": "int"},
+            {"name": "iteration_number", "type": "int"},
+            {"name": "left_coordinates", "type": "jsonb"},
+            {"name": "right_coordinates", "type": "jsonb"}
+        ],
+        "constraints":{
+            "primaryKey": ["segment_id", "segmentation_number", "iteration_number"],
+            "not null": ["segment_id", "segmentation_number", "iteration_number"]
+        }
+    },
+    {
+        "name": "visualisation_segments_segmentation_iteration_sides",
+        "columns": [
+            {"name": "segment_id", "type": "int", "references": "segments"},
+            {"name": "segmentation_number", "type": "int"},
+            {"name": "iteration_number", "type": "int"},
+            {"name": "left_coordinates", "type": "jsonb"},
+            {"name": "right_coordinates", "type": "jsonb"}
+        ],
+        "constraints":{
+            "primaryKey": ["segment_id", "segmentation_number", "iteration_number"],
+            "not null": ["segment_id", "segmentation_number", "iteration_number"]
         }
     },
     {
         "name": "segments_cyclomedia",
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
-            {"name": "record_id", "type": "text"},
+            {"name": "recording_id", "type": "text"},
             {"name": "segmentation_number", "type": "int"},
-            {"name": "order_number", "type": "int"},
             {"name": "recording_lat", "type": "float8"},
             {"name": "recording_lon", "type": "float8"},
+            {"name": "recording_direction", "type": "float8"},
             {"name": "recording_year", "type": "int" }
         ],
         "constraints": {
-            "primaryKey": ["segment_id", "record_id"]
+            "primaryKey": ["segment_id", "recording_id", "segmentation_number", "recording_year"]
         }
     },
     {
@@ -127,10 +218,11 @@
         "columns": [
             {"name": "segment_id", "type": "int", "references": "segments"},
             {"name": "segmentation_number", "type": "int"},
-            {"name": "recording_year", "type": "int" }
+            {"name": "recording_year", "type": "int" },
+            {"name": "bbox", "type": "jsonb"}
         ],
         "constraints": {
-            "primaryKey": ["segment_id", "segmentation_number"]
+            "primaryKey": ["segment_id", "segmentation_number", "recording_year"]
         }
     }
 ]

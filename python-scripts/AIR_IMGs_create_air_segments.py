@@ -1,129 +1,190 @@
+import ERROR_CODES as ec
 from DB_helpers import open_connection
-from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, AIR_TEMP_CROPPED_FOLDER_PATH, AIR_CROPPED_ROTATED_FOLDER_PATH, DATASET_FOLDER_PATH, DB_USER
-from AIR_IMGs_process import calculate_bounding_box, get_rotation_angle_for_img, cut_out_shape, rotate_img_only
-from helpers_coordiantes import convert_coords
+from GLOBAL_VARS import RECORDING_YEAR
+from PATH_CONFIGS import RES_FOLDER_PATH, DB_CONFIG_FILE_NAME, AIR_CROPPED_OUT_FOLDER_PATH, AIR_CROPPED_ITERATION_FOLDER_PATH, DATASET_FOLDER_PATH, extern_AIR_IMGS_FOLDER_PATH, DB_USER
+from AIR_IMGs_helper_methods import cut_out_shape
+from helpers_geometry import calculate_bounding_box
+from LOG import log
 
+from datetime import datetime
 import json
-from psycopg2 import errors
+import psycopg2
+import os
 
-# bbox = [start_left, end_left, end_right, start_right]
-def write_bbox_to_DB(bbox, cursor, segment_id, segmentation_number):
-    left_coords = [bbox[0], bbox[1]]
-    right_coords = [bbox[3], bbox[2]]
-    left_coords = [convert_coords("EPSG:25833", "EPSG:4326", coord[0], coord[1]) for coord in left_coords]
-    right_coords = [convert_coords("EPSG:25833", "EPSG:4326", coord[0], coord[1]) for coord in right_coords]
-
-    cursor.execute("""
-                    INSERT INTO segments_segmentation_sides 
-                    VALUES (%s, %s, %s, %s)""", (segment_id, segmentation_number, json.dumps(left_coords), json.dumps(right_coords), ))
+DATASET_FOLDER_PATH = extern_AIR_IMGS_FOLDER_PATH
+log_start = None
+execution_file = "AIR_IMGs_create_air_segments"
 
 
 # suburb_list = [(ot_name, ot_nr), ..]
-def create_air_segments(db_config_path, db_user, suburb_list):
+def create_air_segments(db_config_path:str, db_user:str, suburb_list:list):
+    global log_start
+    log_start = datetime.now()
+
+    if not db_config_path:
+        db_config_path = f'{RES_FOLDER_PATH}/{DB_CONFIG_FILE_NAME}'
+    if not db_user:
+        db_user = DB_USER
 
     with open_connection(db_config_path, db_user) as con:
-        recording_year = 2019
         cursor = con.cursor()
        
         if suburb_list == []:
              # get ortsteile and their number codes
             cursor.execute("""SELECT ot_name, ot_nr FROM ortsteile""")
             suburb_list = cursor.fetchall()
+
+        else:
+            suburb_with_nr = []
+            for ot_name in suburb_list:
+                cursor.execute("""SELECT ot_nr FROM ortsteile WHERE ot_name = %s""", (ot_name, ))
+                ot_nr = cursor.fetchone()
+                if ot_nr == None:
+                    print(f"[!] No ot_nr found for {ot_name}. CHECK SPELLING?")
+                else:
+                    suburb_with_nr.append((ot_name, ot_nr[0]))
+            suburb_list = suburb_with_nr
+            print(suburb_list)
         
         for ot_name, ot_nr in suburb_list:
             print("Getting Segments in: ", ot_name)
             
             # get all segments for ot
-            cursor.execute("""SELECT id, segm_gid FROM segments WHERE ot_name = %s""", (ot_name, ))
+            cursor.execute("""SELECT id FROM segments WHERE ot_name = %s""", (ot_name, ))
             id_fetch = cursor.fetchall()
             segment_id_list = [item[0] for item in id_fetch]
-            segment_gid_list = [item[1] for item in id_fetch]
 
             # in tif
-            in_tif = DATASET_FOLDER_PATH + "/air-imgs/" + str(recording_year) +"/" + str(ot_nr) +"_"+ str(recording_year) + ".tif"
+            in_tif = DATASET_FOLDER_PATH + "air-imgs/" + str(RECORDING_YEAR) +"/" + str(ot_nr) +"_"+ str(RECORDING_YEAR) + ".tif"
+            if not os.path.exists(in_tif):
+                print("[!] No input TIF to cut out from")
+                continue
 
             for i, segment_id in enumerate(segment_id_list):
                 print(f"------{i+1} of {len(segment_id_list)+1}, segment_ID: {segment_id}--------")
 
-                # check if information is valid
-                cursor.execute("""SELECT segmentation_number FROM segments_segmentation WHERE segment_id = %s""", (segment_id, ))
-                segmentation_no = cursor.fetchall()
-                if len(segmentation_no) == 1 and segmentation_no[0][0] == -1:
-                    print("[!] information invalid - skip")
-                    continue
-
-                # get width of street segment
-                cursor.execute("""SELECT median_breite FROM trafficareas WHERE segm_gid = %s""", (segment_gid_list[i], ))
-                median_breite = cursor.fetchall()
-
-                if median_breite == []:
-                    print("[!] NO WIDTH FOR SEGMENT ", segment_id)
-                    continue
-                elif len(median_breite) > 1:
-                    print("multiple areas . skip")
-                    continue
-                else:
-                    median_breite = median_breite[0][0] + (1/3*median_breite[0][0] )
-    
-                #get segment information
-                cursor.execute("""SELECT * FROM segments_segmentation WHERE segment_id = %s ORDER BY segmentation_number""", (segment_id, ))
+                 #get segment information
+                cursor.execute("""SELECT segmentation_number, width, start_lat, start_lon, end_lat, end_lon, quadrant FROM segments_segmentation WHERE segment_id = %s ORDER BY segmentation_number""", (segment_id, ))
                 segmentation_result_rows = cursor.fetchall()
 
                 if segmentation_result_rows == []:
-                    print("NO RESULT FOR ID %s", segment_id)
+                    print("NO RESULT FOR ID %s - SKIP!", segment_id)
+                    log(execution_file = execution_file, img_type="air", logstart=log_start, logtime=datetime.now(), message=f"No segmentation result for segment{segment_id}")
                     continue
-                #check if the data already exists in folder or in tag table?: TODO
-                # else:
-                    # if len(cyclo_result_rows) == len(segmentation_result_rows):
-                    #     print("EXIST - SKIP")
-                    #     continue
 
-                #cut out img:
+                # check if information is valid
+                segmentation_number = segmentation_result_rows[0][0]
+                if len(segmentation_result_rows) == 1:
+                    if segmentation_number == ec.WRONG_COORD_SORTING:
+                        #TODO
+                        # rec_IDs = [{'recording_id': ec.WRONG_COORD_SORTING, 'street_point': (0,0), 'recording_point': (0,0), 'recording_year': 0}]
+                        # load_into_db(rec_IDs=rec_IDs, segment_id=segment_id, segmentation_number=segmentation_number, connection=con)
+                        log(execution_file = execution_file, img_type="air", logstart=log_start, logtime=datetime.now(), message=f"Wrong coord sorting for segment {segment_id}")
+                        print("[!] no segmentation information - SKIP")
+                        continue
+               
+                #check if the data already exists in folder or in tag table?: TODO
+                else:
+                    cursor.execute("""SELECT * FROM segments_air WHERE segment_id = %s AND segmentation_number = %s AND recording_year = %s""", (segment_id, segmentation_number, RECORDING_YEAR,))
+                    segment_result_row = cursor.fetchall()
+                    if segment_result_row != []:
+                        print("EXIST - SKIP")
+                        continue
+
+                median_breite = segmentation_result_rows[0][1]
+                if median_breite == ec.NO_WIDTH or median_breite == ec.MULTIPLE_TRAFFIC_AREAS:
+                    print("[!] no valid width information - SKIP")
+                    log(execution_file = execution_file, img_type="air", logstart=log_start, logtime=datetime.now(), message=f"No width for segment {segment_id}")
+                    continue
+
+                # cut out img:
                 # segment is not divided into smaller parts
-                elif len(segmentation_result_rows) == 1:
-                    segmentation_number = segmentation_result_rows[0][1]
+                if len(segmentation_result_rows) == 1:
+                                  
+                    segmentation_number = segmentation_result_rows[0][0]
                     start_lat, start_lon = segmentation_result_rows[0][2], segmentation_result_rows[0][3]
                     end_lat, end_lon = segmentation_result_rows[0][4], segmentation_result_rows[0][5]
+                    quadrant = segmentation_result_rows[0][6]
                     temp_coords = [(start_lat, start_lon), (end_lat, end_lon)]
+                    segment_img_filename = str(ot_name) + "_" + str(segment_id) + "_" + str(segmentation_number) 
+
+                    # calculate the bounding box
+                            #bbox = [start_left, end_left, end_right, start_right]
+                    bbox = calculate_bounding_box(temp_coords, median_breite, quadrant)
+
+                    segment_out_tif = AIR_CROPPED_OUT_FOLDER_PATH + segment_img_filename + ".tif"
+                    cut_out_success, message = cut_out_shape(bbox, segment_out_tif, in_tif)
                     
-                    img_filename = str(ot_name) + "_" + str(segment_id) + "_" + str(segmentation_number)
-
-                    #bbox = [start_left, end_left, end_right, start_right]
-                    bbox = calculate_bounding_box(temp_coords, median_breite)
-                    # write bbox data to DB for visualisation
-                    write_bbox_to_DB(bbox, cursor, segment_id, segmentation_number)
-                    con.commit()
-
-                    rotation_angle = get_rotation_angle_for_img(temp_coords)
-                    cut_out_success = cut_out_shape(bbox, AIR_TEMP_CROPPED_FOLDER_PATH + img_filename + ".tif", in_tif)
-
                     if cut_out_success:
-                        #rotate_img_only(cropped_folder, rotated_folder, str(row['object_id']) + ".tif", rotation_angle)
-                        rotate_img_only(AIR_TEMP_CROPPED_FOLDER_PATH, AIR_CROPPED_ROTATED_FOLDER_PATH, img_filename + ".tif", rotation_angle)
-                        #TODO: WRITE TO DB
+                        try:
+                            cursor.execute("""INSERT INTO segments_air (segment_id, segmentation_number, recording_year, bbox) VALUES (%s, %s, %s, %s)""", (segment_id, segmentation_number, RECORDING_YEAR, json.dumps(bbox)), )
+                            con.commit()
+                        except psycopg2.errors.UniqueViolation:
+                            con.rollback()
+                            continue
+
+                        # cut out iteration images
+                        cursor.execute("""SELECT iteration_number, left_coordinates, right_coordinates FROM segments_segmentation_iteration WHERE segment_id = %s AND segmentation_number = %s""", (segment_id, segmentation_number, ))
+                        iteration_information = cursor.fetchall()
+
+                        for item in iteration_information:
+                            iteration_number = item[0]
+                            left_coords = item[1]
+                            right_coords = item[2]
+                            iter_bbox = [left_coords[0], left_coords[1], right_coords[1], right_coords[0]]
+                            iter_out_tif = AIR_CROPPED_ITERATION_FOLDER_PATH + str(ot_name) + "_" + str(segment_id) + "_" + str(segmentation_number) + "_" + str(iteration_number) + ".tif"
+
+                            cut_out_success, message = cut_out_shape(bbox=iter_bbox, out_tif=iter_out_tif, in_tif=segment_out_tif)
+                            if not cut_out_success:
+                                log(execution_file = execution_file, img_type="air", logstart=log_start, logtime=datetime.now(), message=f"{segment_id}: {iteration_number}, No iteration image cut out!")
+
+                    else:
+                        print("[!] CUT OUT NOT POSSIBLE")
+                        log(execution_file = execution_file, img_type="air", logstart=log_start, logtime=datetime.now(), message=f"{segment_id}: {message}")
+                        continue #TODO? is this streets whose segment crosses 2 tifff files?
 
                 # segment is divided into smaller parts
                 elif len(segmentation_result_rows) > 1:
                     for idx, row in enumerate(segmentation_result_rows):
-                        segmentation_number = segmentation_result_rows[idx][1]
+                        segmentation_number = segmentation_result_rows[idx][0]
                         start_lat, start_lon = segmentation_result_rows[idx][2], segmentation_result_rows[idx][3]
                         end_lat, end_lon = segmentation_result_rows[idx][4], segmentation_result_rows[idx][5]
+                        quadrant = segmentation_result_rows[idx][6]
                     
-                        img_filename = str(ot_name) + "_" + str(segment_id) + "_" + str(segmentation_number)
+                        segment_img_filename = str(ot_name) + "_" + str(segment_id) + "_" + str(segmentation_number)
             
                         temp_coords = [(start_lat, start_lon), (end_lat, end_lon)]
-                        bbox = calculate_bounding_box(temp_coords, median_breite)
-                        write_bbox_to_DB(bbox, cursor, segment_id, segmentation_number)
-                        con.commit()
+                        bbox = calculate_bounding_box(temp_coords, median_breite, quadrant)
                     
-                        rotation_angle = get_rotation_angle_for_img(temp_coords)
-                        cut_out_success = cut_out_shape(bbox, AIR_TEMP_CROPPED_FOLDER_PATH + img_filename + ".tif", in_tif)
+                        segment_out_tif = AIR_CROPPED_OUT_FOLDER_PATH + segment_img_filename + ".tif"
+                        cut_out_success, message = cut_out_shape(bbox, segment_out_tif, in_tif)
                         if cut_out_success:
-                            rotate_img_only(AIR_TEMP_CROPPED_FOLDER_PATH, AIR_CROPPED_ROTATED_FOLDER_PATH, img_filename + ".tif", rotation_angle)
-                            #TODO: WRITE TO DB
-                    
+                            try:
+                                cursor.execute("""INSERT INTO segments_air (segment_id, segmentation_number, recording_year, bbox) VALUES (%s, %s, %s, %s)""", (segment_id, segmentation_number, RECORDING_YEAR, json.dumps(bbox)), )
+                                con.commit()
+                            except psycopg2.errors.UniqueViolation:
+                                con.rollback()
+                                continue
+                            # cut out iteration images
+                            cursor.execute("""SELECT iteration_number, left_coordinates, right_coordinates FROM segments_segmentation_iteration WHERE segment_id = %s AND segmentation_number = %s""", (segment_id, segmentation_number, ))
+                            iteration_information = cursor.fetchall()
 
+                            for item in iteration_information:
+                                iteration_number = item[0]
+                                left_coords = item[1]
+                                right_coords = item[2]
+                                iter_bbox = [left_coords[0], left_coords[1], right_coords[1], right_coords[0]]
+                                iter_out_tif = AIR_CROPPED_ITERATION_FOLDER_PATH + str(ot_name) + "_" + str(segment_id) + "_" + str(segmentation_number) + "_" + str(iteration_number) + ".tif"
+                                cut_out_success, message = cut_out_shape(bbox=iter_bbox, out_tif=iter_out_tif, in_tif=segment_out_tif)
+                                if not cut_out_success:
+                                    log(execution_file = execution_file, img_type="air", logstart=log_start, logtime=datetime.now(), message=f"{segment_id}: {iteration_number}, No iteration image cut out!")
+
+
+                        else:
+                            print("[!] CUT OUT NOT POSSIBLE")
+                            log(execution_file = execution_file, img_type="air", logstart=log_start, logtime=datetime.now(), message=f"{segment_id}: {message}")
+                            continue #TODO?
+                    
 
 if __name__ == "__main__":
-    config_path = f'{RES_FOLDER_PATH}/{DB_CONFIG_FILE_NAME}'
-    create_air_segments(db_config_path=config_path, db_user=DB_USER, suburb_list=[('Lindenau',70)])
+    create_air_segments(db_config_path=None, db_user=None, suburb_list=[])

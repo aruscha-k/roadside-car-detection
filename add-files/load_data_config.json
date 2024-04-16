@@ -1,8 +1,7 @@
 {
-    "db_config": "db_config.json",
     "data_scources": [
         {
-            "file_path": "2021_12_22_sdegdw_f66_d_StrassenSegmente_CLEANED.json",
+            "file_path": "2021_12_22_sdegdw_f66_d_StrassenSegmente_CLEANED_CLIPPED.json",
             "mapping_path": "strassen_segmente_testgebiet_mapping.json"
         },
         {

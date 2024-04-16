@@ -12,3 +12,6 @@ Information for connection to PostgreSQL database (with postgis)
 ## db_schema.json
 All tables that are initially created to read city data
 
+
+## db_schema.json
+db schema als json, welches vom python file "create_db_schema.py" eingelesen wird und zur generierung der tabellen in der db genutzt wird.

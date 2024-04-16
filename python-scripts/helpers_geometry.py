@@ -1,121 +1,527 @@
 import math
+import numpy as np
 
 
+from GLOBAL_VARS import CITY_CENTERPT_LEIPZIG_25833, CITY_CENTERPT_LEIPZIG_4326
+
+
+#TODO delete? new method from miriam!
+# PARAMS:
+#  str_pts: 2 points of the beginning and end of street
+# RETURNS:
+#  arcos: angle to y axis in -> radians <-
 # https://math.stackexchange.com/questions/714378/find-the-angle-that-creating-with-y-axis-in-degrees
 def find_angle_to_y(str_pts):
     start_pt, end_pt = str_pts[0], str_pts[1]
     y1 = max([start_pt[1], end_pt[1]])
     y2 = min([start_pt[1], end_pt[1]])  
     arcos = math.acos((y1-y2)/math.sqrt((start_pt[0]-end_pt[0])**2 + (y1-y2)**2))
+    print("Angle to y in degrees:", math.degrees(arcos))
     return arcos
 
+
+#TODO
 # between two points, find the angle of the line they construct to the x-axis
 # source https://stackoverflow.com/questions/41855261/calculate-the-angle-between-a-line-and-x-axis
+# !!! check coordinate reference system => different results for same coordinates in differen coordinate system
+# !!! EPSG4326 returns angle in degrees, EPSG25833 returns angle in radian
 # PARAMS: 
 # str_pts (list) of two points
-# RETURNS: angle in rad
+# RETURNS: angle in radians!
 def find_angle_to_x(str_pts):
-    start_pt, end_pt = str_pts[0], str_pts[1]
+    start_pt, end_pt = str_pts[0], str_pts[-1]
     m = calculate_slope([start_pt, end_pt])
-    print(f"angle to x: {math.degrees(math.atan(m))}")
-    return math.atan(m)
-
-
-# method to determine the start and endpoint of a line according to this projects definition (s.WIKI)
-# starting point is the one closest to city center
-# PARAMS: str_pts (list) of street points
-# RETURNS:
-# str_start (float, float) start point
-#  str_end  (float, float) end point
-def calculate_start_end_pt(str_pts):
-    print(f"i: Calc start and end point for: {str_pts}")
-    x_angle = find_angle_to_x(str_pts)
+    if m == None:
+        return math.radians(90)
+    elif m == 0:
+        return math.radians(0)
+    else:
+        # print(f"angle to x: {math.degrees(math.atan(m))}")
+        return math.atan(m)
     
-    #! this method works for leipzig, because leipzig is located "right"/east of the coordinate origin and 
-    # therefore the possible angles are max. 90 degrees
-    if abs(math.degrees(x_angle)) <= 45:
-        str_start = min(str_pts, key=lambda x: x[0])
-        str_end = max(str_pts, key=lambda x: x[0])
-        
-    elif abs(math.degrees(x_angle)) > 45:
-        str_start = min(str_pts, key=lambda x: x[1])
-        str_end = max(str_pts, key=lambda x: x[1])
-        
-    return str_start, str_end
+
+def unit_vector(vector):
+    """
+    normalizes a given vector to a length of one
+    :param vector: any vector
+    :return: its unit vector
+    """
+    if len(vector) == 0:
+        return 0
+    return vector / np.linalg.norm(vector)
 
 
-# Calculate a slope of a line (! uses the first and last point, so order if needed)
+# resulting angle will be in the range of -180° to 180°, where positive angles indicate counter-clockwise rotation from the y-axis (north direction),
+# and negative angles represent a rotation in the clockwise direction
+# CYCLOMEDIA GENAU ANDERS HERUM!
+def calculate_street_deviation_from_north(start_pt, end_pt):
+    v0 = [0, 1]
+    v1 = unit_vector([end_pt[0] - start_pt[0], end_pt[1] - start_pt[1]])
+    determinant = np.linalg.det([v0, v1])
+    dot_product = np.dot(v0, v1)
+    angle = np.math.atan2(determinant, dot_product)
+    print("Deviation from north:", -np.degrees(angle))
+
+    return -np.degrees(angle)
+
+
+def is_recording_direction_equal_street_direction(viewing_direction, street_north_deviation):
+    """calculate shortest_angular_distance between cyclomedia recording direction angle and street north deviation angle
+        if between specified range return True, else False
+
+    Args:
+        viewing_direction (float): viewing direction of cyclomedia car
+        street_north_deviation (float): street deviation from north 
+
+    Returns:
+        bool: True if they point "in the same direction", else false
+    """
+    #print("street deviation:", street_north_deviation, "cyclomedia deviation:", viewing_direction)
+    # Calculate the absolute difference between the angles
+    abs_diff = abs(viewing_direction - street_north_deviation)
+    #print("viewing_direction: ", viewing_direction, street_north_deviation)
+    
+    # Check for wraparound
+    if abs_diff > 180:
+        abs_diff = 360 - abs_diff
+
+    if 0 <= abs_diff <= 30:
+        return True
+    else:
+        return False
+    
+
+def calculate_quadrant_from_center(str_pts):
+    """ given a specific point for a cities center, calculate in which quadrant a street lies, when point of origin is city center
+        check which EPSG input coordinates are in and use correct center pt respectively
+        if points dont lie within same quadrant, calculate points that lies deeper within the quadrant
+
+    Args:
+        str_pts (list): can be 2 points of the beginning (index = 0) and end (index=1) of street or just one point in a list!!! check that str_pts are in same format as city center point !!!
+
+    Returns:
+        int: quadrant between 1-4 according to the naming of quadrants anti-clockwise
+    """
+    # print("calculate quadrant for pts: ", str_pts)
+    x = str_pts[0][0]
+
+    if x > 55:
+        city_center_pt = CITY_CENTERPT_LEIPZIG_25833
+    else:
+        city_center_pt = CITY_CENTERPT_LEIPZIG_4326
+    origin_x = city_center_pt[0]
+    origin_y = city_center_pt[1]
+
+    quadrants = dict()
+    for idx, pt in enumerate(str_pts):
+        if pt[0] > origin_x and pt[1] > origin_y:
+            quadrants[idx] = 1
+        elif pt[0] < origin_x and pt[1] > origin_y:
+            quadrants[idx] = 2
+        elif pt[0] < origin_x and pt[1] < origin_y:
+            quadrants[idx] = 3
+        elif pt[0] > origin_x and pt[1] < origin_y:
+            quadrants[idx] = 4
+        else:
+            print("[!!] Quadrant = Origin")
+
+    # check if both points are in same quadrant
+    if len(set(quadrants.values())) == 1:
+        quadrant = quadrants[0]
+    else:
+        print("[!] not same quadrant")
+        idx_of_pt = further_from_edges(str_pts, city_center_pt)
+        quadrant = quadrants[idx_of_pt]
+
+    # print("Quadrant:", quadrant)
+    return quadrant
+
+
+def further_from_edges(str_pts, quadrant_center):
+    """method to determine which of two points lies deeper within its quadrant, with specifying a custom quadrant center
+
+    Args:
+        str_pts (list): of points
+        quadrant_center (pt): coordinates
+
+    Returns:
+        int: index of the point further away from the edges of the quadrants
+    """
+    x1, y1 = str_pts[0]
+    x2, y2 = str_pts[1]
+    center_x, center_y = quadrant_center
+
+    distance1 = abs(x1 - center_x) + abs(y1 - center_y)
+    distance2 = abs(x2 - center_x) + abs(y2 - center_y)
+
+    # if point 1 is closer to edge, most points lie in quadrant of point 2, therefore return index of pt2 => 1
+    if distance1 < distance2:
+        return 1
+    elif distance2 < distance1: # if point 2 is closer to edge, most points lie in quadrant of point 1, therefore return index of pt1 => 0
+        return 0
+    else:
+        print("Both points are equidistant from the edges.") # TODO log?
+
+
+def calculate_start_end_pt(str_pts):
+    """method to determine the start and endpoint of a line according to this projects definition (s.WIKI) according to slope and quadrant the street lies in, starting point is the one closest to city center
+
+    Args:
+        str_pts (list): street points !! in coordinate format EPSG:4326 !!
+
+    Returns:
+        str_start (float, float): start point
+        str_end (float, float): end point
+    """
+    #print(f"i: Calc start and end point for: {str_pts}")
+    x_angle = find_angle_to_x(str_pts)
+    slope = calculate_slope(str_pts)
+    quadrant = calculate_quadrant_from_center(str_pts)
+
+    # if street parallel to y
+    if slope == None:
+        if str_pts[-1][1] > CITY_CENTERPT_LEIPZIG_4326[1]:
+            str_start = min(str_pts, key=lambda x: x[1])
+            str_end = max(str_pts, key=lambda x: x[1])
+        else:
+            str_start = max(str_pts, key=lambda x: x[1])
+            str_end = min(str_pts, key=lambda x: x[0])
+
+    # if street parallel to x
+    elif slope == 0:
+        if str_pts[-1][0] > CITY_CENTERPT_LEIPZIG_4326[0]:
+            str_start = min(str_pts, key=lambda x: x[0])
+            str_end = max(str_pts, key=lambda x: x[0])
+        else:
+            str_start = max(str_pts, key=lambda x: x[0])
+            str_end = min(str_pts, key=lambda x: x[0])
+
+    elif slope > 0:
+        if abs(math.degrees(x_angle)) <= 45:
+            if quadrant in [1, 4]:
+                str_start = min(str_pts, key=lambda x: x[0])
+                str_end = max(str_pts, key=lambda x: x[0])
+            elif quadrant in [2, 3]:
+                str_start = max(str_pts, key=lambda x: x[0])
+                str_end = min(str_pts, key=lambda x: x[0])
+        elif abs(math.degrees(x_angle)) > 45:
+            if quadrant in [1, 2]:
+                str_start = min(str_pts, key=lambda x: x[0])
+                str_end = max(str_pts, key=lambda x: x[0])
+            elif quadrant in [3, 4]:
+                str_start = max(str_pts, key=lambda x: x[0])
+                str_end = min(str_pts, key=lambda x: x[0])
+
+    elif slope < 0:
+        if abs(math.degrees(x_angle)) <= 45:
+            if quadrant in [1, 4]:
+                str_start = min(str_pts, key=lambda x: x[0])
+                str_end = max(str_pts, key=lambda x: x[0])
+            elif quadrant in [2, 3]:
+                str_start = max(str_pts, key=lambda x: x[0])
+                str_end = min(str_pts, key=lambda x: x[0])
+
+        elif abs(math.degrees(x_angle)) > 45:
+            if quadrant in [1, 2]:
+                str_start = max(str_pts, key=lambda x: x[0])
+                str_end = min(str_pts, key=lambda x: x[0])
+            elif quadrant in [3, 4]:
+                str_start = min(str_pts, key=lambda x: x[0])
+                str_end = max(str_pts, key=lambda x: x[0])
+
+    # print("startpt", str_start, "endpt", str_end)
+    return str_start, str_end, quadrant
+
+
+# method to use, when getting images from cyclomedia: for this a segment has to be iterated by x meters along the street
+# this method helps choosing the right condition regarding quadrant and slope of the street
 # PARAMS:
-# linepts: (list) of points
+#   slope: slope of the line of the street
+#   x_angle: the angle of the street to the x axis in degrees (TODO CHECK)
+#   str_start, str_end: tuple of (lon, lat) each
+#   x_shifted, y_shifted: the current shift point as (lon, lat)
 # RETURNS:
-# slope (float) if successfull
-def calculate_slope(linepts):
+#   True/False (bool): for the while-loop in which the shifting happens
+def segment_iteration_condition(slope, x_angle, str_start, str_end, x_shifted, y_shifted, quadrant):
+    # print("iteration condition check", slope, x_angle, str_start, str_end, x_shifted, y_shifted)
+
+    # street parallel to y; endpoint is dependent on y-value
+    if slope == None:
+        if y_shifted > CITY_CENTERPT_LEIPZIG_25833[1]:
+            while y_shifted < str_end[1]:
+                return True
+            else:
+                return False
+        else:
+            while y_shifted > str_end[1]:
+                return True
+            else:
+                return False
+
+    # if street parallel to x; endpoint is dependent on x-value
+    elif slope == 0:
+        if x_shifted > CITY_CENTERPT_LEIPZIG_25833[0]:
+            while x_shifted < str_end[0]:
+                return True
+            else:
+                return False
+        else:
+            while x_shifted > str_end[0]:
+                return True
+            else:
+                return False
+
+    elif slope > 0:
+        if abs(math.degrees(x_angle)) <= 45:
+            if quadrant in [1, 4]:
+                while x_shifted < str_end[0]:
+                    return True
+                else:
+                    return False
+            if quadrant in [2, 3]:
+                while x_shifted > str_end[0]:
+                    return True
+                else:
+                    return False
+        elif abs(math.degrees(x_angle)) > 45:
+            if quadrant in [1, 2]:
+                while x_shifted < str_end[0]:
+                    return True
+                else:
+                    return False
+            if quadrant in [3, 4]:
+                while x_shifted > str_end[0]:
+                    return True
+                else:
+                    return False
+
+    elif slope < 0:
+        if abs(math.degrees(x_angle)) <= 45:
+            if quadrant in [1, 4]:
+                while x_shifted < str_end[0]:
+                    return True
+                else:
+                    return False
+            if quadrant in [2, 3]:
+                while x_shifted > str_end[0]:
+                    return True
+                else:
+                    return False
+        elif abs(math.degrees(x_angle)) > 45:
+            if quadrant in [1, 2]:
+                while x_shifted > str_end[0]:
+                    return True
+                else:
+                    return False
+            if quadrant in [3, 4]:
+                while x_shifted < str_end[0]:
+                    return True
+                else:
+                    return False
+
+
+def calculate_slope(linepts: list):
+    """ Calculate a slope of a line (! uses the first and last point, so order if needed)
+    !!! check coordinate reference system => different results for coordinates in different coordinate systems (EPSG4326 or EPSG 25833)
+
+    Args:
+        linepts (list): of points
+
+    Returns:
+        float: slope if successfull
+    """
     if len(linepts) > 0:
         first_pt = linepts[0]
         last_pt = linepts[-1]
         x1, y1 = first_pt[0], first_pt[1]
         x2, y2 = last_pt[0], last_pt[1]
+
+        # check if lines is parallel to y
+        if abs(x1 - x2) < 0.0000001:
+           # print("parallel to y")
+            return None
         
-        if (x2 - x1 != 0):
+        # check if the line is parallel to x 
+        if abs(x2 - x1) > 0.0000001:
+            #print((y2 - y1) / (x2 - x1))
             return (y2 - y1) / (x2 - x1)
-    
+        else:
+            return 0
+        
     else:
-        print("[!] empty list")
+        print("[!] calculate slope: empty list")
 
 
-# given a point and a slope of a line, calculate the y-intercept of the line
-# PARAMS:
-# pt: pt in the line
-# slope: (float) slope of the line
-# RETURNS:
-# b: (float) y value of y-intercept 
 def get_y_intercept(pt, slope):
-    b = (-pt[0] * slope) + pt[1]
+    """given a point and a slope of a line, calculate the y-intercept of the line using line formula y = mx+b converted to b = ..
+
+    Args:
+        pt (tuple): pt in the line
+        slope (float): slope of the line
+
+    Returns:
+        float: y value of y-intercept 
+    """
+    if slope == None:
+        b = 0
+    else:
+        b = (-pt[0] * slope) + pt[1]
     return b
 
 
-
-
-# given a list of two points (start and end point) of a line, 
-# this method calculates the perpendicular (lotgerade) of the line at the start and end point
-# PARAMS:
-# str_pts (list) of two points
-# RETURNS:
-# pm (float) slope of the perpendicular
-# b_start/b_end (float) y value of y-intercept of the start / end point
 def calc_perpendicular(str_pts):
+    """given a list of two points (start and end point) of a line, this method calculates the perpendicular (lotgerade) of the line at the start and end point
+
+    Args:
+        str_pts (list): of two points
+
+    Returns:
+        pm (float): slope of the perpendicular
+        b_start/b_end (float): y value of y-intercept of the start / end point
+    """
     start_pt, end_pt = str_pts[0], str_pts[1]
     m = calculate_slope(str_pts)
     pm = -(1/m)
-
     b_start = get_y_intercept(start_pt, pm)
     b_end = get_y_intercept(end_pt, pm)
     return pm, b_start, b_end
 
 
-# given the slope and y intercept of two lines, this method calculates the interception point
-# PARAMS:
-# m1 / m2 (float) slope of first/second line
-# b1 / b2 (float) y-intercept of first/second line
-# RETURNS: 
-# (x,y) point of interception
 def calc_interception_of_two_lines(m1, b1, m2, b2):
+    """ given the slope and y intercept of two lines, this method calculates the interception point
+
+    Args:
+        m1 (float): slope of first line
+        b1 (float): y-intercept of first line
+        m2 (float): slope of second line
+        b2 (float): y-intercept of second line
+
+    Returns:
+        (x,y): point of interception
+    """
     x = (b2-b1) / (m1-m2)
     y = m1 * x + b1
 
     return (x,y)
 
 
+def calculate_bounding_box(str_pts, width, quadrant):
+    """ given two points and the wanted width calculate two parallel lines and perpendiculars so get a bounding box for a street segment function cant be joined with calculate_start_end segments, because it is used on iteration of segmentated semgents => more detailed
 
-# def rotate(origin, point, angle):
-#     """
-#     Rotate a point counterclockwise by a given angle around a given origin.
-#     The angle should be given in radians.
-#     """
-#     ox, oy = origin
-#     px, py = point
+    Args:
+        str_pts (list): of two points
+        width (float): width of the street
 
-#     qx = ox + math.cos(angle) * (px - ox) - math.sin(angle) * (py - oy)
-#     qy = oy + math.sin(angle) * (px - ox) + math.cos(angle) * (py - oy)
-#     return qx, qy
+    Returns:
+        list: bbox with points in order [start_left, end_left, end_right, start_right]
+    """
+    # slope of original line
+    slope_origin = calculate_slope(str_pts)
+    #if street parallel to y-axis
+    if slope_origin == None:
+        if str_pts[0][1] > CITY_CENTERPT_LEIPZIG_25833[1]:
+            start_left = (str_pts[0][0] - (width/2), str_pts[0][1])
+            end_left = (str_pts[1][0] - (width/2), str_pts[1][1])
+            end_right = (str_pts[1][0] + (width/2), str_pts[1][1])
+            start_right = (str_pts[0][0] + (width/2), str_pts[0][1])
+   
+        else:
+            start_left = (str_pts[0][0] + (width/2), str_pts[0][1])
+            end_left = (str_pts[1][0] + (width/2), str_pts[1][1])
+            end_right = (str_pts[1][0] - (width/2), str_pts[1][1])
+            start_right = (str_pts[0][0] - (width/2), str_pts[0][1])
+        bounding_box = [start_left, end_left, end_right, start_right]
+        return bounding_box
+        
+    # if street parallel to x
+    elif slope_origin == 0:
+        b_origin = get_y_intercept(str_pts[0], slope_origin) 
+        if str_pts[0][0] > CITY_CENTERPT_LEIPZIG_25833[0]:
+            start_left = (str_pts[0][0], b_origin + (width/2))
+            end_left = (str_pts[1][0], b_origin + (width/2))
+            end_right = (str_pts[1][0], b_origin - (width/2))
+            start_right = (str_pts[0][0], b_origin - (width/2))
+       
+        else:
+            start_left = (str_pts[0][0], b_origin - (width/2))
+            end_left = (str_pts[1][0], b_origin - (width/2))
+            end_right = (str_pts[1][0], b_origin + (width/2))
+            start_right = (str_pts[0][0], b_origin + (width/2))
+        bounding_box = [start_left, end_left, end_right, start_right]
+        return bounding_box
 
+
+    # y intercept of original line, angle to x-axis of original line
+    
+    b_origin = get_y_intercept(str_pts[0], slope_origin) 
+    x_angle = find_angle_to_x(str_pts)
+
+   # calc y intercept of parallel line: parallel line has slope of m_origin
+    new_width = width/2 * math.sqrt((slope_origin**2) + 1)
+    b_parallel_below = (b_origin-new_width)
+    b_parallel_above = (b_origin+new_width)
+
+    # calc perpendiculars for start point and endpoints
+    m_perpendicular, b_perpend_start, b_perpend_end = calc_perpendicular(str_pts)
+    
+    if slope_origin > 0:
+        if abs(math.degrees(x_angle)) <= 45:
+            if quadrant in [1, 4]:
+                start_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, slope_origin, b_parallel_above) #upper left
+                end_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, slope_origin, b_parallel_above) #upper right
+                end_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, slope_origin, b_parallel_below) # lower right
+                start_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, slope_origin, b_parallel_below) #lower left
+                
+            if quadrant in [2, 3]:
+                start_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, slope_origin, b_parallel_below) #upper left
+                end_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, slope_origin, b_parallel_below) #upper right
+                end_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, slope_origin, b_parallel_above) # lower right
+                start_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, slope_origin, b_parallel_above) #lower left
+                
+        elif abs(math.degrees(x_angle)) > 45:
+            if quadrant in [1, 2]:
+                start_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, slope_origin, b_parallel_above) #upper left
+                end_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, slope_origin, b_parallel_above) #upper right
+                end_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, slope_origin, b_parallel_below) # lower right
+                start_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, slope_origin, b_parallel_below) #lower left
+
+            if quadrant in [3, 4]:
+                start_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, slope_origin, b_parallel_below) #upper left
+                end_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, slope_origin, b_parallel_below) #upper right
+                end_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, slope_origin, b_parallel_above) # lower right
+                start_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, slope_origin, b_parallel_above) #lower left
+
+    elif slope_origin < 0:
+        if abs(math.degrees(x_angle)) <= 45:
+            if quadrant in [1, 4]:
+                start_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, slope_origin, b_parallel_above) #upper left
+                end_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, slope_origin, b_parallel_above) #upper right
+                end_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, slope_origin, b_parallel_below) # lower right
+                start_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, slope_origin, b_parallel_below) #lower left
+
+            if quadrant in [2, 3]:
+                start_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, slope_origin, b_parallel_below) #upper left
+                end_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, slope_origin, b_parallel_below) #upper right
+                end_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, slope_origin, b_parallel_above) # lower right
+                start_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, slope_origin, b_parallel_above) #lower left
+                
+        elif abs(math.degrees(x_angle)) > 45:
+            if quadrant in [1, 2]:
+                start_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, slope_origin, b_parallel_below) #upper left
+                end_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, slope_origin, b_parallel_below) #upper right
+                end_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, slope_origin, b_parallel_above) # lower right
+                start_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, slope_origin, b_parallel_above) #lower left
+
+            if quadrant in [3, 4]:
+                start_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, slope_origin, b_parallel_above) #upper left
+                end_left = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, slope_origin, b_parallel_above) #upper right
+                end_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_end, slope_origin, b_parallel_below) # lower right
+                start_right = calc_interception_of_two_lines(m_perpendicular, b_perpend_start, slope_origin, b_parallel_below) #lower left
+
+    bounding_box = [start_left, end_left, end_right, start_right]
+    return bounding_box
+
+
+# if __name__ == "__main__":
+#     find_angle_to_y([(316822.5120000001, 5688438.680999999), (316822.10240000044, 5688330.902699999)])
+#     calculate_slope([(316822.5120000001, 5688438.680999999), (316822.10240000044, 5688330.902699999)])
