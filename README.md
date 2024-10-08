@@ -20,12 +20,12 @@ All tables that are initially created to read city data by python file "create_d
 
 # How to run
 1. Needed files: fileformat see below
-   1. spatial files for street segmentation
+   1. [spatial files for street segmentation](https://cloud.scadsai.uni-leipzig.de/index.php/s/HY4oEWz42C3mQsT) - pw: parking-sdsc24
       1. strassensegmente.json
       2. trafficareas.json
       3. suburbs.json
    2. images files
-      1. air-imgs per suburb
+      1. [air-imgs per suburb](https://opendata.leipzig.de/dataset/luftbild-2022-stadt-leipzig) remark: our networks were trained on a resolution of 10cm/px, the openly available data is 20cm/px
       2. cyclomedia /street view images are downloaded in the process
    3. [model files](https://cloud.scadsai.uni-leipzig.de/index.php/s/HY4oEWz42C3mQsT) - pw: parking-sdsc24
       1. object detection model for air images
